@@ -1,0 +1,25 @@
+﻿<UserControl x:Class="IgnaviorLauncher.Views.PatchNoteView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             mc:Ignorable="d"
+             d:DesignHeight="200" d:DesignWidth="500">
+    <Border Margin="0,0,0,10"
+            Background="#222222" Opacity="0.3"
+            CornerRadius="3"
+            Padding="10">
+        <StackPanel>
+            <TextBlock Text="{Binding Version}" 
+                       FontFamily="Inter" FontWeight="SemiBold" FontSize="20"
+                       Foreground="White" Margin="0,0,0,5" />
+            <FlowDocumentScrollViewer x:Name="MarkdownViewer"
+                                      VerticalScrollBarVisibility="Disabled"
+                                      IsToolBarVisible="False"
+                                      Background="Transparent"
+                                      BorderThickness="0"
+                                      Foreground="White"
+                                      FontFamily="Inter" FontSize="13"/>
+        </StackPanel>
+    </Border>
+</UserControl>

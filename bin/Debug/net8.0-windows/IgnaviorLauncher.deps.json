@@ -1,0 +1,57 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v8.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v8.0": {
+      "IgnaviorLauncher/1.0.0": {
+        "dependencies": {
+          "CommunityToolkit.Mvvm": "8.4.0",
+          "Markdown.Xaml": "1.0.0"
+        },
+        "runtime": {
+          "IgnaviorLauncher.dll": {}
+        }
+      },
+      "CommunityToolkit.Mvvm/8.4.0": {
+        "runtime": {
+          "lib/net8.0/CommunityToolkit.Mvvm.dll": {
+            "assemblyVersion": "8.4.0.0",
+            "fileVersion": "8.4.0.1"
+          }
+        }
+      },
+      "Markdown.Xaml/1.0.0": {
+        "runtime": {
+          "lib/net45/Markdown.Xaml.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "IgnaviorLauncher/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "CommunityToolkit.Mvvm/8.4.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-tqVU8yc/ADO9oiTRyTnwhFN68hCwvkliMierptWOudIAvWY1mWCh5VFh+guwHJmpMwfg0J0rY+yyd5Oy7ty9Uw==",
+      "path": "communitytoolkit.mvvm/8.4.0",
+      "hashPath": "communitytoolkit.mvvm.8.4.0.nupkg.sha512"
+    },
+    "Markdown.Xaml/1.0.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-TgDok7ZwYJ419hMB432zQXI6effszN2h36eQ+MAN1zR6WEvnuY3rBnM0MDh3t55JTFdK1T5VZZmwBdJukhMr5Q==",
+      "path": "markdown.xaml/1.0.0",
+      "hashPath": "markdown.xaml.1.0.0.nupkg.sha512"
+    }
+  }
+}
