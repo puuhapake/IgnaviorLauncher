@@ -21,6 +21,7 @@
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
     <PackageReference Include="Markdown.Xaml" Version="1.0.0" />
+    <PackageReference Include="SharpCompress" Version="0.47.0" />
   </ItemGroup>
 
   <ItemGroup>

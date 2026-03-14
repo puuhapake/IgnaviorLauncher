@@ -21,6 +21,14 @@
             "fileVersion": "1.0.0.0"
           }
         }
+      },
+      "SharpCompress/0.47.0": {
+        "runtime": {
+          "lib/net8.0/SharpCompress.dll": {
+            "assemblyVersion": "0.47.0.0",
+            "fileVersion": "0.47.0.0"
+          }
+        }
       }
     }
   },
@@ -38,6 +46,13 @@
       "sha512": "sha512-TgDok7ZwYJ419hMB432zQXI6effszN2h36eQ+MAN1zR6WEvnuY3rBnM0MDh3t55JTFdK1T5VZZmwBdJukhMr5Q==",
       "path": "markdown.xaml/1.0.0",
       "hashPath": "markdown.xaml.1.0.0.nupkg.sha512"
+    },
+    "SharpCompress/0.47.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-cy+K4ES0FhDTiyjPOs4ktF7pHwaZ2BS8GwCyZVFtV00hVqwIY+6YqcPv3V7C8MLPt6eJVxhSl+tu/w1J8L8EUg==",
+      "path": "sharpcompress/0.47.0",
+      "hashPath": "sharpcompress.0.47.0.nupkg.sha512"
     }
   }
 }

@@ -22,6 +22,8 @@ public class GameManifest
 
     [JsonPropertyName("patches")]
     public List<PatchInfo> Patches { get; set; }
+
+    public Dictionary<string, string> ChangelogUrls { get; set; }
 }
 
 public class BaseInfo

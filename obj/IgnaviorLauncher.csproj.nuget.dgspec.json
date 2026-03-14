@@ -57,6 +57,10 @@
             "Markdown.Xaml": {
               "target": "Package",
               "version": "[1.0.0, )"
+            },
+            "SharpCompress": {
+              "target": "Package",
+              "version": "[0.47.0, )"
             }
           },
           "imports": [

@@ -1,11 +1,12 @@
 {
   "version": 2,
-  "dgSpecHash": "Fb1DQ9p6R0Y=",
+  "dgSpecHash": "qT9kz8QikJE=",
   "success": true,
   "projectFilePath": "C:\\Users\\skrungel\\source\\repos\\IgnaviorLauncher\\IgnaviorLauncher.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\skrungel\\.nuget\\packages\\communitytoolkit.mvvm\\8.4.0\\communitytoolkit.mvvm.8.4.0.nupkg.sha512",
-    "C:\\Users\\skrungel\\.nuget\\packages\\markdown.xaml\\1.0.0\\markdown.xaml.1.0.0.nupkg.sha512"
+    "C:\\Users\\skrungel\\.nuget\\packages\\markdown.xaml\\1.0.0\\markdown.xaml.1.0.0.nupkg.sha512",
+    "C:\\Users\\skrungel\\.nuget\\packages\\sharpcompress\\0.47.0\\sharpcompress.0.47.0.nupkg.sha512"
   ],
   "logs": [
     {
