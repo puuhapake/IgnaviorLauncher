@@ -11,6 +11,7 @@ public class LocalGameInfo
     public string Id { get; set; }
     public string InstalledVersion { get; set; }
     public DateTime LastPlayed { get; set; }
+    public string GameRoot { get; set; }
 }
 
 public class LocalGameService

@@ -262,11 +262,14 @@ public partial class MainViewModel : ObservableObject
 
             Debug.WriteLine("Extraction complete.");
             TryDeleteFile(rarPath);
+
+            string relativeRoot = FindGameRoot(gamedir);
             gameService.SaveGameInfo(new LocalGameInfo()
             {
                 Id = id,
                 InstalledVersion = manifest.Base.Version,
-                LastPlayed = DateTime.Now
+                LastPlayed = DateTime.Now,
+                GameRoot = relativeRoot
             });
             game.InstalledVersion = manifest.Base.Version;
             game.TextState = manifest.Base.Version == manifest.LatestVersion ? "Play" : "Update";
@@ -293,6 +296,9 @@ public partial class MainViewModel : ObservableObject
         string library = GetGameLibraryPath();
         string gamedir = Path.Combine(library, id);
 
+        var info = gameService.GetGameInfo(id) ?? throw new Exception("Game info not found!");
+        string dir = info.GameRoot == "." ? gamedir : Path.Combine(gamedir, info.GameRoot);
+        
         var patches = new List<PatchInfo>();
         string version = game.InstalledVersion;
 
@@ -311,11 +317,10 @@ public partial class MainViewModel : ObservableObject
         foreach (var patch in patches)
         {
             string rar = await downloader.DownloadFileAsync(patch.Url, temp);
-            ApplyPatchPackage(rar, gamedir);
+            ApplyPatchPackage(rar, dir);
             TryDeleteFile(rar);
         }
 
-        var info = gameService.GetGameInfo(id);
         info.InstalledVersion = manifest.LatestVersion;
         gameService.SaveGameInfo(info);
 
@@ -329,6 +334,21 @@ public partial class MainViewModel : ObservableObject
         
         if (entry.Key != null)
         {
+            string id = entry.Key;
+            var info = gameService.GetGameInfo(id);
+            string gamedir = Path.Combine(GetGameLibraryPath(), id);
+            string filedir = info?.GameRoot == "." ? gamedir : Path.Combine(gamedir, info?.GameRoot ?? "");
+            string exe = Directory.GetFiles(filedir, "*.exe").FirstOrDefault();
+
+            if (exe != null)
+            {
+                System.Diagnostics.Process.Start(exe);
+            }
+            else
+            {
+                System.Windows.MessageBox.Show("Could not find game executable.");
+            }
+
             gameService.UpdateLastPlayed(entry.Key);
         }
         game.LastPlayed = DateTime.Now;
@@ -358,11 +378,12 @@ public partial class MainViewModel : ObservableObject
                 Overwrite = true
             });
         }
-        string manifest = Path.Combine(temp, "manifest.json");
-        if (!File.Exists(manifest))
+        string manifest = Directory.GetFiles(temp, "manifest.json", SearchOption.AllDirectories).FirstOrDefault();
+        if (manifest == null)
         {
             throw new Exception("Patch manifest not found in package.");
         }
+        string root = Path.GetDirectoryName(manifest);
 
         var patch = JsonSerializer.Deserialize<PatchManifest>(File.ReadAllText(manifest));
         foreach (var deletedFile in patch.deleted_files)
@@ -376,7 +397,7 @@ public partial class MainViewModel : ObservableObject
 
         foreach (var newFile in patch.new_files)
         {
-            string source = Path.Combine(temp, newFile);
+            string source = Path.Combine(root, newFile);
             string dest = Path.Combine(dir, newFile);
             Directory.CreateDirectory(Path.GetDirectoryName(dest));
             File.Copy(source, dest, overwrite: true);
@@ -386,8 +407,8 @@ public partial class MainViewModel : ObservableObject
         foreach (var patchEntry in patch.patches)
         {
             string target = Path.Combine(dir, patchEntry.file);
-            string patcher = Path.Combine(temp, patchEntry.patch);
-            string output = target + " (patch)";
+            string patcher = Path.Combine(root, patchEntry.patch);
+            string output = target + ".patcher";
 
             var process = new System.Diagnostics.Process()
             {
@@ -413,6 +434,21 @@ public partial class MainViewModel : ObservableObject
             File.Move(output, target);
         }
         Directory.Delete(temp, true);
+    }
+
+    private string FindGameRoot(string dir)
+    {
+        var subs = Directory.GetDirectories(dir);
+        if (subs.Length == 1)
+        {
+            string d = subs[0];
+            if (Directory.GetFiles(d, "*.exe").Length != 0 ||
+                Directory.GetDirectories(d, "*_Data").Length != 0)
+            {
+                return Path.GetFileName(d);
+            }
+        }
+        return ".";
     }
 
     private class PatchManifest
