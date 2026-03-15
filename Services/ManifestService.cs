@@ -8,7 +8,7 @@ namespace IgnaviorLauncher.Services;
 internal class ManifestService
 {
     private readonly HttpClient client;
-    private const string ManifestUrl = "https://raw.githubusercontent.com/artmedland/IgnaviorLauncher_files/main/manifest.json";
+    private const string ManifestUrl = "https://raw.githubusercontent.com/puuhapake/IgnaviorLauncher_files/main/manifest.json";
 
     public ManifestService()
     {
