@@ -123,7 +123,7 @@ public partial class MainViewModel : ObservableObject
         var manifest = entry.Value;
 
         game.PatchNotes.Clear();
-        string changelogUrl = "https://raw.githubusercontent.com/artmedland/IgnaviorLauncher_files/main/changelogs";
+        string changelogUrl = "https://raw.githubusercontent.com/puuhapake/IgnaviorLauncher_files/main/changelogs";
         var versions = new List<string>();
 
         if (manifest.Base != null)

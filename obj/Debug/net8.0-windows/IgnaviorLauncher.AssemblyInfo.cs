@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("IgnaviorLauncher")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+024e0336f453a0996da10beadf6776d724e18f8c")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+38c0ab324e008b597fb97b76590923a2913c1985")]
 [assembly: System.Reflection.AssemblyProductAttribute("IgnaviorLauncher")]
 [assembly: System.Reflection.AssemblyTitleAttribute("IgnaviorLauncher")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
