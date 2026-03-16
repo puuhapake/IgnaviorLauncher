@@ -13,7 +13,7 @@ public partial class PatchNoteView : UserControl
         DataContextChanged += OnDataContextChanged;
     }
 
-    private void OnDataContextChanged(object sender, System.Windows.DependencyPropertyChangedEventArgs args)
+    private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs args)
     {
         if (args.NewValue is PatchNoteViewModel note)
         {
