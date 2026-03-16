@@ -10,7 +10,7 @@
             CornerRadius="3"
             Padding="10">
         <StackPanel>
-            <TextBlock Text="{Binding Version}" 
+            <TextBlock Text="{Binding DisplayVersion}" 
                        FontFamily="Inter" FontWeight="SemiBold" FontSize="20"
                        Foreground="White" Margin="0,0,0,5" />
             <FlowDocumentScrollViewer x:Name="MarkdownViewer"

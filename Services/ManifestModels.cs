@@ -17,6 +17,9 @@ public class GameManifest
     [JsonPropertyName("latest")]
     public string LatestVersion { get; set; }
 
+    [JsonPropertyName("versionNames")]
+    public Dictionary<string, string> VersionNames { get; set; } = [];
+
     [JsonPropertyName("base")]
     public BaseInfo Base { get; set; }
 

@@ -13,6 +13,7 @@ using System.Text.Json;
 
 using Debug = System.Diagnostics.Debug;
 using System.Windows;
+using System.Net.Http;
 
 namespace IgnaviorLauncher.ViewModels;
 
@@ -32,7 +33,8 @@ public partial class MainViewModel : ObservableObject
         {
             if (SetProperty(ref selectedGame, value) && value != null)
             {
-                SelectGameCommand.Execute(value);
+                //SelectGameCommand.Execute(value);
+                LoadChangelogForGame(value);
             }
         }
     }
@@ -146,43 +148,62 @@ public partial class MainViewModel : ObservableObject
         var manifest = entry.Value;
 
         game.PatchNotes.Clear();
-        string changelogUrl = "https://raw.githubusercontent.com/puuhapake/IgnaviorLauncher_files/main/changelogs";
-        var versions = new List<string>();
 
+        var versions = new List<string>();
         if (manifest.Base != null)
+        {
             versions.Add(manifest.Base.Version);
+        }
+
         foreach (var patch in manifest.Patches)
         {
             if (!versions.Contains(patch.OldVersion))
+            {
                 versions.Add(patch.OldVersion);
+            }
             if (!versions.Contains(patch.NewVersion))
+            {
                 versions.Add(patch.NewVersion);
+            }
         }
-        versions = versions.Distinct().OrderByDescending(v => v).ToList();
+        versions = versions.Distinct().OrderByDescending(ver => ver).ToList();
+        string cache = Path.Combine(ResourceService.LocalAppDirectory, "changelogs", id);
+        Directory.CreateDirectory(cache);
+
+        using var client = new HttpClient();
 
         foreach (var version in versions)
         {
-            string url = $"{changelogUrl}{id}/{version}.md";
-            try
+            string displayName = manifest.VersionNames?.GetValueOrDefault(version) ?? version;
+            string md = Path.Combine(cache, $"{version}.md");
+            string markdown;
+
+            if (File.Exists(md))
             {
-                using var client = new System.Net.Http.HttpClient();
-                string markdown = await client.GetStringAsync(url);
-                game.PatchNotes.Add(new PatchNoteViewModel
-                {
-                    Version = version,
-                    MarkdownContent = markdown,
-                    ReleaseDate = DateTime.MinValue
-                });
+                markdown = await File.ReadAllTextAsync(cache);
             }
-            catch
+            else
             {
-                game.PatchNotes.Add(new PatchNoteViewModel
+                string url = "https://raw.githubusercontent.com/puuhapake/IgnaviorLauncher_files/main/changelogs/";
+                url += $"{id}/{version}.md";
+                try
                 {
-                    Version = version,
-                    MarkdownContent = $"#{version}\n",
-                    ReleaseDate = DateTime.MinValue
-                });
+                    markdown = await client.GetStringAsync(url);
+                    await File.WriteAllTextAsync(cache, markdown);
+                }
+                catch
+                {
+                    markdown = $"#{displayName}\n\n*No changelog available.*";
+                }
             }
+
+            game.PatchNotes.Add(new PatchNoteViewModel
+            {
+                Version = version,
+                DisplayVersion = displayName,
+                MarkdownContent = markdown,
+                ReleaseDate = DateTime.MinValue
+            });
         }
     }
 

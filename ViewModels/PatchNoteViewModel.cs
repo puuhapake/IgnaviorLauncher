@@ -7,6 +7,9 @@ public partial class PatchNoteViewModel : ObservableObject
     private string version;
 
     [ObservableProperty]
+    private string displayVersion;
+
+    [ObservableProperty]
     private string markdownContent;
 
     [ObservableProperty]
