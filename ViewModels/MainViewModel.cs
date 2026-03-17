@@ -51,15 +51,6 @@ public partial class MainViewModel : ObservableObject
         return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".Ignavior");
     }
 
-    private string GetDownloadsPath()
-    {
-        string path = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), 
-            "IgnaviorLauncher", "Downloads");
-        Directory.CreateDirectory(path);
-        return path;
-    }
-
     public MainViewModel()
     {
         manifest = new();
@@ -80,8 +71,9 @@ public partial class MainViewModel : ObservableObject
             }
             else
             {
-                settings.LibraryPath = GetGameLibraryPath();
-                MessageBox.Show($"Operation canceled, defaulting to path {GetGameLibraryPath()}");
+                string defpath = GetGameLibraryPath();
+                settings.LibraryPath = defpath;
+                MessageBox.Show($"Operation canceled, defaulting to path {defpath}");
                 settingsService.Save(settings);
             }
         }
@@ -113,8 +105,25 @@ public partial class MainViewModel : ObservableObject
             if (games.ContainsKey(id))
             {
                 var info = gameService.GetGameInfo(id);
-                version = info?.InstalledVersion;
-                displayVersion = info?.DisplayVersion;
+                if (info != null)
+                {
+                    string fileDirectory = info.GameRoot == "."
+                        ? Path.Combine(gameService.LibraryPath, id)
+                        : Path.Combine(gameService.LibraryPath, id, info.GameRoot);
+
+                    if (Directory.Exists(fileDirectory))
+                    {
+                        version = info.InstalledVersion;
+                        displayVersion = info.DisplayVersion ?? GetDisplayVersion(id, version);
+                    }
+                    else
+                    {
+                        version = null;
+                    }
+                }
+
+                // version = info?.InstalledVersion;
+                // displayVersion = info?.DisplayVersion;
             }
 
             if (version != null && string.IsNullOrEmpty(displayVersion))
@@ -197,8 +206,7 @@ public partial class MainViewModel : ObservableObject
             }
             else
             {
-                string url = $"https://raw.githubusercontent.com/puuhapake/" +
-                    $"IgnaviorLauncher_files/main/changelogs/{id}/{version}.md";
+                string url = PathManagerService.GetChangelogUrl() + $"{id}/{version}.md";
 
                 try
                 {
@@ -294,7 +302,7 @@ public partial class MainViewModel : ObservableObject
         Directory.CreateDirectory(gamedir);
 
         DownloadService downloader = new();
-        string temp = GetDownloadsPath();
+        string temp = PathManagerService.GetDownloadsPath();
         string rarPath = null;
 
         try
@@ -351,8 +359,8 @@ public partial class MainViewModel : ObservableObject
     private string GetDisplayVersion(string id, string version)
     {
         if (manifestMap.TryGetValue(id, out var manifest)
-            && manifest.VersionNames.TryGetValue(version, out var displayName)
-            && manifest.VersionNames != null)
+            && manifest.VersionNames != null
+            && manifest.VersionNames.TryGetValue(version, out var displayName))
         {
             return displayName;
         }
@@ -389,7 +397,7 @@ public partial class MainViewModel : ObservableObject
         }
 
         var downloader = new DownloadService();
-        string temp = GetDownloadsPath();
+        string temp = PathManagerService.GetDownloadsPath();
 
         foreach (var patch in patches)
         {
@@ -617,5 +625,148 @@ public partial class MainViewModel : ObservableObject
             return;
 
         SelectedGame = Games.FirstOrDefault(g => g == game);
+    }
+
+    [RelayCommand]
+    private void VerifyIntegrity()
+    {
+
+    }
+
+    private bool resetGameInfoOnUninstall = false;
+    [RelayCommand]
+    private void UninstallGame(GameViewModel game)
+    {
+        if (game == null)
+            return;
+
+        var result = MessageBox.Show(
+            $"Are you sure you want to uninstall {game.Name}?", 
+            "Confirm Uninstallation", 
+            MessageBoxButton.YesNo, 
+            MessageBoxImage.Question);
+
+        if (result != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        try
+        {
+            var entry = manifestMap.FirstOrDefault(pair => pair.Value.Name == game.Name);
+            if (entry.Key == null)
+                return;
+
+            string id = entry.Key;
+            string dir = Path.Combine(gameService.LibraryPath, id);
+
+            if (Directory.Exists(dir))
+            {
+                string gameDir = Path.Combine(dir, id);
+                Directory.Delete(gameDir, recursive: true);
+            }
+
+            if (resetGameInfoOnUninstall)
+            {
+                gameService.RemoveGameInfo(id);
+            }
+
+            game.InstalledVersion = "";
+            game.DisplayVersion = "";
+            game.TextState = "Install";
+            SelectedGame = game;
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Uninstallation failed:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    [RelayCommand]
+    private void OpenExplorer(GameViewModel game)
+    {
+        if (game == null)
+            return;
+
+        try
+        {
+            var entry = manifestMap.FirstOrDefault(pair => pair.Value.Name == game.Name);
+            if (entry.Key == null)
+                return;
+
+            string id = entry.Key;
+            string dir = Path.Combine(gameService.LibraryPath, id, id);
+
+            if (Directory.Exists(dir))
+            {
+                System.Diagnostics.Process.Start("explorer.exe", dir);
+            }
+            else
+            {
+                MessageBox.Show("Game folder not found.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Could not open folder:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    [RelayCommand]
+    private async Task CheckForUpdates()
+    {
+        try
+        {
+            var updatedManifest = await manifest.FetchManifestAsync();
+            if (updatedManifest == null)
+            {
+                MessageBox.Show("Failed to fetch new manifest. Please check your Internet connection.",
+                    "Update Failed",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
+            }
+
+            manifestMap.Clear();
+            foreach (var pair in updatedManifest.Games)
+            {
+                manifestMap[pair.Key] = pair.Value;
+            }
+
+            foreach (var game in Games)
+            {
+                var entry = manifestMap.FirstOrDefault(pair => pair.Value.Name == game.Name);
+                if (entry.Key == null)
+                    continue;
+
+                string id = entry.Key;
+                var mgame = entry.Value;
+
+                if (!string.IsNullOrEmpty(game.InstalledVersion))
+                {
+                    game.DisplayVersion = GetDisplayVersion(id, game.InstalledVersion);
+                }
+
+                if (string.IsNullOrEmpty(game.InstalledVersion))
+                {
+                    game.TextState = "Install";
+                }
+                else
+                {
+                    bool isLatest = game.InstalledVersion == mgame.LatestVersion;
+                    game.TextState = isLatest ? "Play" : "Update";
+                }
+            }
+
+            if (SelectedGame != null)
+            {
+                LoadChangelogForGame(SelectedGame);
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Error when checking for updates:\n{ex.Message}",
+                "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 }

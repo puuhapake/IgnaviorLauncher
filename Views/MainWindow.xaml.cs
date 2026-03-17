@@ -29,8 +29,18 @@ public partial class MainWindow : Window
         if (DataContext is MainViewModel vm)
         {
             double scale = e.NewSize.Width / 1060;
-            scale = Math.Max(1.0, Math.Min(1.55, scale));
+            scale = Math.Max(1.0, Math.Min(1.2, scale));
             vm.ChangelogScale = scale;
         }
+    }
+
+    private void SettingsButton_Click(object sender, RoutedEventArgs e)
+    {
+        SettingsPopup.IsOpen = true;
+    }
+
+    private void MenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        SettingsPopup.IsOpen = false;
     }
 }

@@ -58,6 +58,19 @@ public class LocalGameService
         SaveGameInfo(info);
     }
 
+    public void RemoveGameInfo(string id)
+    {
+        string dir = Path.Combine(LibraryPath, id);
+        string info = Path.Combine(dir, "gameinfo.json");
+
+        if (!File.Exists(info))
+        {
+            System.Diagnostics.Debug.WriteLine($"Tried to delete gameinfo for {id}, but could not find json");
+            return;
+        }
+        File.Delete(info);
+    }
+
     public IEnumerable<string> GetInstalledGameIds()
     {
         foreach (var dir in Directory.GetDirectories(LibraryPath))

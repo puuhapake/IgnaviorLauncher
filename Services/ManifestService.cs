@@ -8,7 +8,6 @@ namespace IgnaviorLauncher.Services;
 internal class ManifestService
 {
     private readonly HttpClient client;
-    private const string ManifestUrl = "https://raw.githubusercontent.com/puuhapake/IgnaviorLauncher_files/main/manifest.json";
 
     private readonly JsonSerializerOptions options = new()
     {
@@ -25,7 +24,7 @@ internal class ManifestService
     {
         try
         {
-            var json = await client.GetStringAsync(ManifestUrl);
+            var json = await client.GetStringAsync(PathManagerService.ManifestUrl);
             System.Diagnostics.Debug.WriteLine($"Manifest: {json}");
             var result = JsonSerializer.Deserialize<RootManifest>(json, options);
             System.Diagnostics.Debug.WriteLine($"Games: {result?.Games?.Count ?? 0}");
