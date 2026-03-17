@@ -1,9 +1,9 @@
 ﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
-using IgnaviorLauncher.ViewModels;
 
 namespace IgnaviorLauncher.Views;
+using ViewModels;
 
 public partial class PatchNoteView : UserControl
 {
@@ -19,9 +19,11 @@ public partial class PatchNoteView : UserControl
         {
             var markdown = new Markdown.Xaml.Markdown();
             var flowDoc = markdown.Transform(note.MarkdownContent);
-            flowDoc.FontFamily = new("/Assets/Fonts/Inter-VariableFont_opsz,wght.ttf#Inter");
+
+            flowDoc.FontFamily = new("/Assets/Fonts/static/Inter_18pt-Light#Inter Light");
             flowDoc.Foreground = Brushes.White;
-            flowDoc.FontWeight = FontWeights.Light;
+            flowDoc.TextAlignment = TextAlignment.Left;
+
             MarkdownViewer.Document = flowDoc;
         }
     }

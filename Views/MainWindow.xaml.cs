@@ -12,6 +12,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        SizeChanged += OnSizeChanged;
     }
 
     private void GamesTabList_SelectionChanged(object sender, SelectionChangedEventArgs args)
@@ -20,6 +21,16 @@ public partial class MainWindow : Window
             && GamesTabList.SelectedItem is GameViewModel game)
         {
             vm.SelectGameCommand.Execute(game);
+        }
+    }
+
+    private void OnSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (DataContext is MainViewModel vm)
+        {
+            double scale = e.NewSize.Width / 1060;
+            scale = Math.Max(1.0, Math.Min(1.55, scale));
+            vm.ChangelogScale = scale;
         }
     }
 }

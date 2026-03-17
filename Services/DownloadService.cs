@@ -45,7 +45,7 @@ public class DownloadService
             await response.Content.CopyToAsync(fileStream);
             return destPath;
         }
-        catch (Exception ex)
+        catch
         {
             // foo
         }

@@ -12,6 +12,9 @@ public partial class GameViewModel : ObservableObject
     private string installedVersion = "v1.0.0"; // placeholder
 
     [ObservableProperty]
+    private string displayVersion;
+
+    [ObservableProperty]
     private string iconPath;
 
     [ObservableProperty]

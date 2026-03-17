@@ -10,6 +10,7 @@ public class LocalGameInfo
 {
     public string Id { get; set; }
     public string InstalledVersion { get; set; }
+    public string DisplayVersion { get; set; }
     public DateTime LastPlayed { get; set; }
     public string GameRoot { get; set; }
 }

@@ -3,10 +3,10 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:IgnaviorLauncher.ViewModels"
         xmlns:views="clr-namespace:IgnaviorLauncher.Views"
-        Title="Game Launcher" Height="693" Width="1036"
+        Title="Ignavior Launcher" Height="693" Width="1036"
         WindowStartupLocation="CenterScreen"
         Background="#1A1A1A"
-        MinWidth="800" MinHeight="600"
+        MinWidth="1060" MinHeight="720"
         FontFamily="/Assets/Fonts/Inter.ttf#Inter">
 
     <Window.DataContext>
@@ -14,6 +14,7 @@
     </Window.DataContext>
 
     <Window.Resources>
+        <local:ScaleMultiplier x:Key="ScaleMultiplier"/>
         <FontFamily x:Key="Inter-Variable">
             /Assets/Fonts/Inter-VariableFont_opsz,wght.ttf#Inter
         </FontFamily>
@@ -36,8 +37,8 @@
                                        RadiusX="4" RadiusY="4"
                                        Stretch="Fill">
                                 <Rectangle.Fill>
-                                    <RadialGradientBrush Center="0.5,0.5" GradientOrigin="0.5,0.5"
-                                                          RadiusX="1" RadiusY="0.7">
+                                    <RadialGradientBrush Center="0.4,0.5" GradientOrigin="0.5,0.5"
+                                                          RadiusX="1" RadiusY="0.65">
                                         <GradientStop Color="#C4191B" Offset="0.34"/>
                                         <GradientStop Color="#7E2E2E" Offset="1.0"/>
                                     </RadialGradientBrush>
@@ -124,13 +125,13 @@
                                                         Width="58" Height="58"
                                                         Background="#21D9D9D9"
                                                         CornerRadius="2"
-                                                        HorizontalAlignment="Center"
+                                                        HorizontalAlignment="Left"
                                                         VerticalAlignment="Center"
                                                         Visibility="Collapsed"/>
                                                 <Border x:Name="RedLine"
                                                         Width="58" Height="2" 
                                                         Background="#ED331F"
-                                                        HorizontalAlignment="Center"
+                                                        HorizontalAlignment="Left"
                                                         VerticalAlignment="Bottom"
                                                         Margin="0,0,0,0"
                                                         CornerRadius="1"
@@ -159,10 +160,10 @@
 
             <Grid Grid.Row="1" Margin="32,20,32,20">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="325"/>
-                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*" MinWidth="380" MaxWidth="900"/>
+                    <ColumnDefinition Width="0.8*"/>
                     <ColumnDefinition Width="2*" MinWidth="570" MaxWidth="1400"/>
-                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="0.6*"/>
                 </Grid.ColumnDefinitions>
 
                 <Grid Grid.Column="0" Margin="0,20,0,0">
@@ -172,10 +173,12 @@
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
                     <TextBlock Grid.Row="0" Text="{Binding SelectedGame.Name}" 
-                               FontFamily="Inter" FontSize="42"
-                               Foreground="White" Margin="16,0,0,0"/>
-                    <TextBlock Grid.Row="1" Text="{Binding SelectedGame.InstalledVersion}"
-                               FontFamily="Inter" FontWeight="Medium" FontSize="12"
+                               FontFamily="Inter" FontSize="{Binding ChangelogScale, Converter={StaticResource ScaleMultiplier}, ConverterParameter=42}"
+                               Foreground="White" Margin="16,0,0,0"
+                               TextWrapping="Wrap"
+                               HorizontalAlignment="Stretch"/>
+                    <TextBlock Grid.Row="1" Text="{Binding SelectedGame.DisplayVersion}"
+                               FontFamily="Inter" FontWeight="Medium" FontSize="{Binding ChangelogScale, Converter={StaticResource ScaleMultiplier}, ConverterParameter=12}"
                                Foreground="#CCFFFFFF" Margin="16,5,0,0"/>
                     <Button Grid.Row="2" Width="305" Height="68"
                             Content="{Binding SelectedGame.TextState}"
@@ -183,7 +186,8 @@
                             FontFamily="Inter" FontWeight="SemiBold" FontSize="28"
                             Foreground="White"
                             VerticalAlignment="Bottom"
-                            Margin="0,0,0,20"
+                            HorizontalAlignment="Left"
+                            Margin="30,0,0,20"
                             Command="{Binding DataContext.PrimaryActionCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                             CommandParameter="{Binding SelectedGame}"
                             />
@@ -192,6 +196,10 @@
                 <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto"
                               Background="Transparent">
                     <ItemsControl ItemsSource="{Binding SelectedGame.PatchNotes}">
+                        <ItemsControl.LayoutTransform>
+                            <ScaleTransform ScaleX="{Binding ChangelogScale}"
+                                            ScaleY="{Binding ChangelogScale}"/>
+                        </ItemsControl.LayoutTransform>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <views:PatchNoteView />

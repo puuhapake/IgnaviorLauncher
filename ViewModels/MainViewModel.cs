@@ -25,6 +25,9 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private ObservableCollection<GameViewModel> games;
 
+    [ObservableProperty]
+    private double changelogScale = 1.0;
+
     private GameViewModel selectedGame;
     public GameViewModel SelectedGame
     {
@@ -38,6 +41,8 @@ public partial class MainViewModel : ObservableObject
             }
         }
     }
+
+    private readonly Dictionary<(string id, string version), string> cache = [];
 
     private readonly SettingsService settingsService;
 
@@ -104,10 +109,17 @@ public partial class MainViewModel : ObservableObject
             var game = pair.Value;
 
             string version = null;
+            string displayVersion = null;
             if (games.ContainsKey(id))
             {
                 var info = gameService.GetGameInfo(id);
                 version = info?.InstalledVersion;
+                displayVersion = info?.DisplayVersion;
+            }
+
+            if (version != null && string.IsNullOrEmpty(displayVersion))
+            {
+                displayVersion = GetDisplayVersion(id, version);
             }
 
             string buttonText = "Install";
@@ -121,6 +133,7 @@ public partial class MainViewModel : ObservableObject
             {
                 Name = game.Name,
                 InstalledVersion = version ?? "",
+                DisplayVersion = displayVersion ?? version ?? "",
                 TextState = buttonText,
 
                 LastPlayed = games.ContainsKey(id) ? 
@@ -167,33 +180,35 @@ public partial class MainViewModel : ObservableObject
             }
         }
         versions = versions.Distinct().OrderByDescending(ver => ver).ToList();
-        string cache = Path.Combine(ResourceService.LocalAppDirectory, "changelogs", id);
-        Directory.CreateDirectory(cache);
+        //string cache = Path.Combine(ResourceService.LocalAppDirectory, "changelogs", id);
+        //Directory.CreateDirectory(cache);
 
         using var client = new HttpClient();
 
         foreach (var version in versions)
         {
-            string displayName = manifest.VersionNames?.GetValueOrDefault(version) ?? version;
-            string md = Path.Combine(cache, $"{version}.md");
+            string displayName = GetDisplayVersion(id, version);
+            //string md = Path.Combine(cache, $"{version}.md");
             string markdown;
 
-            if (File.Exists(md))
+            if (cache.TryGetValue((id, version), out var cached))
             {
-                markdown = await File.ReadAllTextAsync(cache);
+                markdown = cached;
             }
             else
             {
-                string url = "https://raw.githubusercontent.com/puuhapake/IgnaviorLauncher_files/main/changelogs/";
-                url += $"{id}/{version}.md";
+                string url = $"https://raw.githubusercontent.com/puuhapake/" +
+                    $"IgnaviorLauncher_files/main/changelogs/{id}/{version}.md";
+
                 try
                 {
                     markdown = await client.GetStringAsync(url);
-                    await File.WriteAllTextAsync(cache, markdown);
+                    //await File.WriteAllTextAsync(cache, markdown);
+                    cache[(id, version)] = markdown;
                 }
                 catch
                 {
-                    markdown = $"#{displayName}\n\n*No changelog available.*";
+                    markdown = $"*No changelog available.*";
                 }
             }
 
@@ -310,14 +325,17 @@ public partial class MainViewModel : ObservableObject
             TryDeleteFile(rarPath);
 
             string relativeRoot = FindGameRoot(gamedir);
+            string vers = GetDisplayVersion(id, manifest.Base.Version);
             gameService.SaveGameInfo(new LocalGameInfo()
             {
                 Id = id,
                 InstalledVersion = manifest.Base.Version,
+                DisplayVersion = vers,
                 LastPlayed = DateTime.Now,
                 GameRoot = relativeRoot
             });
             game.InstalledVersion = manifest.Base.Version;
+            game.DisplayVersion = GetDisplayVersion(id, manifest.Base.Version);
             game.TextState = manifest.Base.Version == manifest.LatestVersion ? "Play" : "Update";
         }
         catch (Exception ex)
@@ -328,6 +346,17 @@ public partial class MainViewModel : ObservableObject
                 TryDeleteFile(rarPath);
             }
         }
+    }
+
+    private string GetDisplayVersion(string id, string version)
+    {
+        if (manifestMap.TryGetValue(id, out var manifest)
+            && manifest.VersionNames.TryGetValue(version, out var displayName)
+            && manifest.VersionNames != null)
+        {
+            return displayName;
+        }
+        return version;
     }
 
     private async void UpdateGame(GameViewModel game)
@@ -370,9 +399,11 @@ public partial class MainViewModel : ObservableObject
         }
 
         info.InstalledVersion = manifest.LatestVersion;
+        info.DisplayVersion = GetDisplayVersion(id, manifest.LatestVersion);
         gameService.SaveGameInfo(info);
 
         game.InstalledVersion = manifest.LatestVersion;
+        game.DisplayVersion = GetDisplayVersion(id, manifest.LatestVersion);
         game.TextState = "Play";
     }
 
