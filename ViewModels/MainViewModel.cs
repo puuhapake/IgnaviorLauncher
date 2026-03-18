@@ -17,6 +17,7 @@ using Microsoft.VisualBasic;
 
 namespace IgnaviorLauncher.ViewModels;
 using Services;
+using SharpCompress.Readers;
 
 public partial class MainViewModel : ObservableObject
 {
@@ -309,23 +310,48 @@ public partial class MainViewModel : ObservableObject
         throw new Exception($"Failed to delete {path}");
     }
 
+    private static void TryDeleteDirectory(string path, int maxRetries = 3)
+    {
+        for (int i = 1; i <= maxRetries; i++)
+        {
+            try
+            {
+                Directory.Delete(path, true);
+                return;
+            }
+            catch (Exception)
+            when (i < maxRetries)
+            {
+                Debug.WriteLine($"Failed to delete directory {path} (attempt {i})");
+                Thread.Sleep(300 * i);
+            }
+        }
+        MessageBox.Show($"Failed to delete directory {path}", "Error");
+        throw new Exception($"Failed to delete directory {path}");
+    }
+
     private async Task<List<string>> DownloadArchivePartsAsync(
         DownloadService downloader,
         string tempDir,
         BaseInfo baseInfo)
     {
+        string archiveDir = Path.Combine(tempDir, Guid.NewGuid().ToString());
+        Directory.CreateDirectory(archiveDir);
+
         var paths = new List<string>();
-        if (baseInfo.Parts != null && baseInfo.Parts.Any())
+        if (baseInfo.Parts != null && baseInfo.Parts.Count != 0)
         {
             foreach (var part in baseInfo.Parts)
             {
-                string path = await downloader.DownloadFileAsync(part.Url, tempDir);
+                string originalName = Path.GetFileName(new Uri(part.Url).LocalPath);
+                string path = await downloader.DownloadFileAsync(part.Url, archiveDir, originalName);
                 paths.Add(path);
             }
         }
         else if (!string.IsNullOrEmpty(baseInfo.Url))
         {
-            string path = await downloader.DownloadFileAsync(baseInfo.Url, tempDir);
+            string originalName = Path.GetFileName(new Uri(baseInfo.Url).LocalPath);
+            string path = await downloader.DownloadFileAsync(baseInfo.Url, archiveDir, originalName);
             paths.Add(path);
         }
         else
@@ -340,18 +366,23 @@ public partial class MainViewModel : ObservableObject
         string tempDir,
         PatchInfo patchInfo)
     {
+        string archiveDir = Path.Combine(tempDir, Guid.NewGuid().ToString());
+        Directory.CreateDirectory(archiveDir);
+
         var paths = new List<string>();
         if (patchInfo.Parts != null && patchInfo.Parts.Count != 0)
         {
             foreach (var part in patchInfo.Parts)
             {
-                string path = await downloader.DownloadFileAsync(part.Url, tempDir);
+                string originalName = Path.GetFileName(new Uri(part.Url).LocalPath);
+                string path = await downloader.DownloadFileAsync(part.Url, archiveDir, originalName);
                 paths.Add(path);
             }
         }
         else if (!string.IsNullOrEmpty(patchInfo.Url))
         {
-            string path = await downloader.DownloadFileAsync(patchInfo.Url, tempDir);
+            string originalName = Path.GetFileName(new Uri(patchInfo.Url).LocalPath);
+            string path = await downloader.DownloadFileAsync(patchInfo.Url, archiveDir, originalName);
             paths.Add(path);
         }
         else
@@ -395,8 +426,11 @@ public partial class MainViewModel : ObservableObject
             string extractTemp = Path.Combine(Path.GetTempPath(), "IgnaviorInstall", Guid.NewGuid().ToString());
             Directory.CreateDirectory(extractTemp);
 
-            using (var stream = TryOpenFile(rarPath, FileMode.Open, FileAccess.Read, FileShare.Read))
-            using (var archive = RarArchive.OpenArchive(stream))
+            string password = GetSecret();
+            var archiveOptions = new ReaderOptions { Password = password };
+            
+            //using (var stream = TryOpenFile(rarPath, FileMode.Open, FileAccess.Read, FileShare.Read)) // replace stream with rarpath
+            using (var archive = RarArchive.OpenArchive(rarPath, archiveOptions))
             {
                 foreach (var entry in archive.Entries.Where(e => !e.IsDirectory))
                 {
@@ -415,6 +449,9 @@ public partial class MainViewModel : ObservableObject
             {
                 TryDeleteFile(part);
             }
+
+            string archiveDir = Path.GetDirectoryName(downloaded.First());
+            TryDeleteDirectory(archiveDir);
 
             string displayVer = GetDisplayVersion(id, manifest.Base.Version);
             gameService.SaveGameInfo(new LocalGameInfo
@@ -531,10 +568,8 @@ public partial class MainViewModel : ObservableObject
                 downloader, tempDirectory, patch
                 );
             ApplyPatchPackage(downloads.First(), dir);
-            foreach (var part in downloads)
-            {
-                TryDeleteFile(part);
-            }
+            string archiveDir = Path.GetDirectoryName(downloads.First());
+            TryDeleteDirectory(archiveDir);
         }
 
         info.InstalledVersion = manifest.LatestVersion;
@@ -589,7 +624,14 @@ public partial class MainViewModel : ObservableObject
 
     private string GetSecret()
     {
-        return PasswordService.Decrypt(settingsService.Load().Secret)!;
+        var settings = settingsService.Load();
+        if (settings.Secret == null || settings.Secret.Length == 0)
+        {
+            return null;
+        }
+
+        string secret = PasswordService.Decrypt(settings.Secret);
+        return PasswordService.HashKey(secret);
     }
 
     private void ApplyPatchPackage(string rar, string dir)
@@ -599,8 +641,8 @@ public partial class MainViewModel : ObservableObject
 
         string pw = GetSecret();
 
-        using var fileStream = TryOpenFile(rar, FileMode.Open, FileAccess.Read, FileShare.Read);
-        using var archive = RarArchive.OpenArchive(fileStream, new SharpCompress.Readers.ReaderOptions { Password = pw });
+        //using var fileStream = TryOpenFile(rar, FileMode.Open, FileAccess.Read, FileShare.Read); // replace rar with fileStream
+        using var archive = RarArchive.OpenArchive(rar, new ReaderOptions { Password = pw });
 
         foreach (var entry in archive.Entries.Where(e => !e.IsDirectory))
         {

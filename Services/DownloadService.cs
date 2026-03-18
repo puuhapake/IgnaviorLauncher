@@ -14,18 +14,25 @@ public class DownloadService
         client = new();
     }
 
-    public async Task<string> DownloadFileAsync(string url, string dest)
+    public async Task<string> DownloadFileAsync(string url, string dest, string? overrideFileName = null)
     {
         Directory.CreateDirectory(dest);
 
-        string baseFileName = Path.GetFileName(new Uri(url).LocalPath);
-        string extension = Path.GetExtension(baseFileName);
-        if (string.IsNullOrEmpty(extension))
+
+        string fileName = overrideFileName;
+
+        if (string.IsNullOrEmpty(fileName))
         {
-            extension = ".tmp";
+            string baseFileName = Path.GetFileName(new Uri(url).LocalPath);
+            string extension = Path.GetExtension(baseFileName);
+            if (string.IsNullOrEmpty(extension))
+            {
+                extension = ".tmp";
+            }
+
+            fileName = Guid.NewGuid().ToString() + extension;
         }
 
-        string fileName = Guid.NewGuid().ToString() + extension;
         string destPath = Path.Combine(dest, fileName);
 
         try
