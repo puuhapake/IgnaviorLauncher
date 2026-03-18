@@ -1,25 +1,24 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using IgnaviorLauncher.Services;
+using SharpCompress.Archives.Rar;
+using SharpCompress.Archives;
 
 using System.Collections.ObjectModel;
-using System.Threading.Tasks;
-using System.Linq;
-using System.IO;
-using System;
-using SharpCompress.Archives;
-using System.Text.Json.Serialization;
 using System.Text.Json;
+using System.IO;
 
-using Debug = System.Diagnostics.Debug;
+using System.Diagnostics;
 using System.Windows;
 using System.Net.Http;
 
 namespace IgnaviorLauncher.ViewModels;
+using Services;
+using SharpCompress.Common;
 
 public partial class MainViewModel : ObservableObject
 {
-    private readonly ManifestService manifest;
+    private readonly ManifestService manifestService;
+    private readonly SettingsService settingsService;
     private readonly LocalGameService gameService;
 
     [ObservableProperty]
@@ -28,10 +27,13 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private double changelogScale = 1.0;
 
-    private GameViewModel selectedGame;
+    private GameViewModel? selectedGame;
     public GameViewModel SelectedGame
     {
-        get => selectedGame;
+        get
+        {
+            return selectedGame!;
+        }
         set
         {
             if (SetProperty(ref selectedGame, value) && value != null)
@@ -42,18 +44,18 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private readonly Dictionary<(string id, string version), string> cache = [];
+    private readonly Dictionary<(string id, string version), string> changelogCache = [];
 
-    private readonly SettingsService settingsService;
-
-    private string GetGameLibraryPath()
+    private static string GetDefaultGameLibraryPath()
     {
-        return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".Ignavior");
+        return Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), 
+            ".Ignavior");
     }
 
     public MainViewModel()
     {
-        manifest = new();
+        manifestService = new();
         settingsService = new();
 
         var settings = settingsService.Load();
@@ -64,14 +66,14 @@ public partial class MainViewModel : ObservableObject
                 Title = "Select game install folder",
                 InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
             };
-            if ((bool)dialog.ShowDialog())
+            if (dialog.ShowDialog() == true)
             {
                 settings.LibraryPath = dialog.FolderName;
                 settingsService.Save(settings);
             }
             else
             {
-                string defpath = GetGameLibraryPath();
+                string defpath = GetDefaultGameLibraryPath();
                 settings.LibraryPath = defpath;
                 MessageBox.Show($"Operation canceled, defaulting to path {defpath}");
                 settingsService.Save(settings);
@@ -85,11 +87,11 @@ public partial class MainViewModel : ObservableObject
 
     private async Task Async()
     {
-        var manifest = await this.manifest.FetchManifestAsync();
+        var manifest = await manifestService.FetchManifestAsync();
         if (manifest == null)
         {
-            // throw?
-            return;
+            MessageBox.Show("Failed to fetch manifest.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            throw new Exception("Failed to fetch manifest.");
         }
 
         var games = gameService.GetInstalledGameIds().ToDictionary(id => id);
@@ -100,8 +102,9 @@ public partial class MainViewModel : ObservableObject
             string id = pair.Key;
             var game = pair.Value;
 
-            string version = null;
-            string displayVersion = null;
+            string? version = null;
+            string? displayVersion = null;
+
             if (games.ContainsKey(id))
             {
                 var info = gameService.GetGameInfo(id);
@@ -114,7 +117,8 @@ public partial class MainViewModel : ObservableObject
                     if (Directory.Exists(fileDirectory))
                     {
                         version = info.InstalledVersion;
-                        displayVersion = info.DisplayVersion ?? GetDisplayVersion(id, version);
+                        displayVersion = info.DisplayVersion 
+                            ?? GetDisplayVersion(id, version);
                     }
                     else
                     {
@@ -126,14 +130,14 @@ public partial class MainViewModel : ObservableObject
                 // displayVersion = info?.DisplayVersion;
             }
 
-            if (version != null && string.IsNullOrEmpty(displayVersion))
-            {
-                displayVersion = GetDisplayVersion(id, version);
-            }
-
             string buttonText = "Install";
             if (version != null)
             {
+                if (string.IsNullOrEmpty(displayVersion))
+                {
+                    displayVersion = GetDisplayVersion(id, version);
+                }
+
                 bool latest = version == game.LatestVersion;
                 buttonText = latest ? "Play" : "Update";
             }
@@ -146,8 +150,8 @@ public partial class MainViewModel : ObservableObject
                 TextState = buttonText,
 
                 LastPlayed = games.ContainsKey(id) ? 
-                gameService.GetGameInfo(id)?.LastPlayed ?? 
-                DateTime.MinValue : DateTime.MinValue
+                    gameService.GetGameInfo(id)?.LastPlayed ?? 
+                    DateTime.MinValue : DateTime.MinValue
             };
 
             manifestMap[id] = game;
@@ -155,10 +159,10 @@ public partial class MainViewModel : ObservableObject
         }
 
         Games = [.. models.OrderByDescending(g => g.LastPlayed)];
-        SelectedGame = Games.FirstOrDefault();
+        SelectedGame = Games.FirstOrDefault()!;
     }
 
-    private readonly Dictionary<string, GameManifest> manifestMap = new();
+    private readonly Dictionary<string, GameManifest> manifestMap = [];
 
     private async void LoadChangelogForGame(GameViewModel game)
     {
@@ -188,19 +192,21 @@ public partial class MainViewModel : ObservableObject
                 versions.Add(patch.NewVersion);
             }
         }
-        versions = versions.Distinct().OrderByDescending(ver => ver).ToList();
-        //string cache = Path.Combine(ResourceService.LocalAppDirectory, "changelogs", id);
-        //Directory.CreateDirectory(cache);
+        versions = [.. versions.Distinct().OrderByDescending(ver => ver)];
+        
+        // Holdover from old write-to-file changelog caching (currently memory-only)
+        // string cache = Path.Combine(ResourceService.LocalAppDirectory, "changelogs", id);
+        // Directory.CreateDirectory(cache);
 
         using var client = new HttpClient();
 
         foreach (var version in versions)
         {
+            // string md = Path.Combine(cache, $"{version}.md");
             string displayName = GetDisplayVersion(id, version);
-            //string md = Path.Combine(cache, $"{version}.md");
             string markdown;
 
-            if (cache.TryGetValue((id, version), out var cached))
+            if (changelogCache.TryGetValue((id, version), out var cached))
             {
                 markdown = cached;
             }
@@ -211,8 +217,8 @@ public partial class MainViewModel : ObservableObject
                 try
                 {
                     markdown = await client.GetStringAsync(url);
-                    //await File.WriteAllTextAsync(cache, markdown);
-                    cache[(id, version)] = markdown;
+                    // await File.WriteAllTextAsync(cache, markdown);
+                    changelogCache[(id, version)] = markdown;
                 }
                 catch
                 {
@@ -250,26 +256,30 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private FileStream TryOpenFile(string path, FileMode mode, FileAccess access, FileShare share, int maxRetries = 3)
+    private static FileStream TryOpenFile(string path, FileMode mode, 
+        FileAccess access, FileShare share, int maxRetries = 3)
     {
-        for (int i = 0; i < maxRetries; i++)
+        for (int i = 1; i <= maxRetries; i++)
         {
             try
             {
-                return new FileStream(path, mode, access, share, 4096, FileOptions.SequentialScan);
+                return new FileStream(path, mode, 
+                    access, share, bufferSize: 4096, 
+                    options: FileOptions.SequentialScan);
             }
             catch (IOException)
-            when (i < maxRetries - 1)
+            when (i < maxRetries)
             {
-                Thread.Sleep(300 * (i + 1));
+                Thread.Sleep(300 * i);
             }
         }
+        MessageBox.Show($"Failed to open {path}", "Error");
         throw new IOException($"Failed to open {path}");
     }
 
-    private void TryDeleteFile(string path, int maxRetries = 3)
+    private static void TryDeleteFile(string path, int maxRetries = 3)
     {
-        for (int i = 0; i < maxRetries; i++)
+        for (int i = 1; i <= maxRetries; i++)
         {
             try
             {
@@ -277,12 +287,13 @@ public partial class MainViewModel : ObservableObject
                 return;
             }
             catch (IOException)
-            when (i < maxRetries - 1)
+            when (i < maxRetries)
             {
-                System.Diagnostics.Debug.WriteLine($"Attempt {i+1} failed");
-                Thread.Sleep((i + 1) * 400);
+                Debug.WriteLine($"Attempt {i} failed");
+                Thread.Sleep(300 * i);
             }
         }
+        MessageBox.Show($"Failed to delete {path}", "Error");
         throw new Exception($"Failed to delete {path}");
     }
 
@@ -295,15 +306,14 @@ public partial class MainViewModel : ObservableObject
         string id = gameEntry.Key;
         var manifest = gameEntry.Value;
 
-        // old fallback
-        // string library = GetGameLibraryPath();
         string library = gameService.LibraryPath;
-        string gamedir = Path.Combine(library, id);
-        Directory.CreateDirectory(gamedir);
+        string gamesDirectory = Path.Combine(library, id);
+        Directory.CreateDirectory(gamesDirectory);
 
         DownloadService downloader = new();
         string temp = PathManagerService.GetDownloadsPath();
-        string rarPath = null;
+
+        string? rarPath = null;
 
         try
         {
@@ -315,11 +325,11 @@ public partial class MainViewModel : ObservableObject
             game.TextState = "Extracting";
 
             using (var stream = TryOpenFile(rarPath, FileMode.Open, FileAccess.Read, FileShare.Read))
-            using (var archive = SharpCompress.Archives.Rar.RarArchive.OpenArchive(stream))
+            using (var archive = RarArchive.OpenArchive(stream))
             {
                 foreach (var entry in archive.Entries.Where(e => !e.IsDirectory))
                 {
-                    entry.WriteToDirectory(gamedir, new SharpCompress.Common.ExtractionOptions()
+                    entry.WriteToDirectory(gamesDirectory, new ExtractionOptions()
                     {
                         ExtractFullPath = true,
                         Overwrite = true
@@ -327,30 +337,34 @@ public partial class MainViewModel : ObservableObject
                 }
             }
 
-            //GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
-
             Debug.WriteLine("Extraction complete.");
             TryDeleteFile(rarPath);
 
-            string relativeRoot = FindGameRoot(gamedir);
-            string vers = GetDisplayVersion(id, manifest.Base.Version);
-            gameService.SaveGameInfo(new LocalGameInfo()
+            string relativeRoot = FindGameRoot(gamesDirectory);
+            string version = GetDisplayVersion(id, manifest.Base.Version);
+
+            gameService.SaveGameInfo(new LocalGameInfo
             {
                 Id = id,
                 InstalledVersion = manifest.Base.Version,
-                DisplayVersion = vers,
+                DisplayVersion = version,
                 LastPlayed = DateTime.Now,
                 GameRoot = relativeRoot
             });
+            
             game.InstalledVersion = manifest.Base.Version;
             game.DisplayVersion = GetDisplayVersion(id, manifest.Base.Version);
+
             game.TextState = manifest.Base.Version == manifest.LatestVersion ? "Play" : "Update";
+            // Optional:
+            // ReorderGameBar(game);
         }
         catch (Exception ex)
         {
-            Debug.WriteLine(ex);
+            Debug.WriteLine($"Game installation failed: {ex.Message}");
             if (rarPath != null && File.Exists(rarPath))
             {
+                Debug.WriteLine("Trying to clean up archive files...");
                 TryDeleteFile(rarPath);
             }
         }
@@ -376,18 +390,20 @@ public partial class MainViewModel : ObservableObject
         string id = gameEntry.Key;
         var manifest = gameEntry.Value;
 
-        // old fallback
-        // string library = GetGameLibraryPath();
         string library = gameService.LibraryPath;
-        string gamedir = Path.Combine(library, id);
+        string gameDirectory = Path.Combine(library, id);
 
-        var info = gameService.GetGameInfo(id) ?? throw new Exception("Game info not found!");
-        string dir = info.GameRoot == "." ? gamedir : Path.Combine(gamedir, info.GameRoot);
+        var info = gameService.GetGameInfo(id) 
+            ?? throw new Exception("Preserved gameinfo.json not found!");
+
+        string dir = info.GameRoot == "." 
+            ? gameDirectory 
+            : Path.Combine(gameDirectory, info.GameRoot);
         
         var patches = new List<PatchInfo>();
         string version = game.InstalledVersion;
 
-        // assumes patches in order!
+        // Note: patches must be listed in sequential order
         while (version != manifest.LatestVersion)
         {
             var next = manifest.Patches.FirstOrDefault(p => p.OldVersion == version) 
@@ -397,11 +413,11 @@ public partial class MainViewModel : ObservableObject
         }
 
         var downloader = new DownloadService();
-        string temp = PathManagerService.GetDownloadsPath();
+        string tempDirectory = PathManagerService.GetDownloadsPath();
 
         foreach (var patch in patches)
         {
-            string rar = await downloader.DownloadFileAsync(patch.Url, temp);
+            string rar = await downloader.DownloadFileAsync(patch.Url, tempDirectory);
             ApplyPatchPackage(rar, dir);
             TryDeleteFile(rar);
         }
@@ -413,6 +429,9 @@ public partial class MainViewModel : ObservableObject
         game.InstalledVersion = manifest.LatestVersion;
         game.DisplayVersion = GetDisplayVersion(id, manifest.LatestVersion);
         game.TextState = "Play";
+
+        // Optional:
+        // ReorderGameBar(game);
     }
 
     private void PlayGame(GameViewModel game)
@@ -423,24 +442,34 @@ public partial class MainViewModel : ObservableObject
         {
             string id = entry.Key;
             var info = gameService.GetGameInfo(id);
+
             string gamedir = Path.Combine(gameService.LibraryPath, id);
-            string filedir = info?.GameRoot == "." ? gamedir : Path.Combine(gamedir, info?.GameRoot ?? "");
-            string exe = Directory.GetFiles(filedir, "*.exe").FirstOrDefault();
+            string dir = info?.GameRoot == "." 
+                ? gamedir : 
+                Path.Combine(gamedir, info?.GameRoot ?? "");
+            
+            string? exe = Directory.GetFiles(dir, "*.exe").FirstOrDefault();
 
             if (exe != null)
             {
-                System.Diagnostics.Process.Start(exe);
+                Process.Start(exe);
             }
             else
             {
-                System.Windows.MessageBox.Show("Could not find game executable.");
+                MessageBox.Show("Could not find game executable.", "Error");
             }
 
             gameService.UpdateLastPlayed(entry.Key);
         }
-        game.LastPlayed = DateTime.Now;
 
-        var reordered = Games.OrderByDescending(g => g.LastPlayed).ToList();
+        ReorderGameBar(game);
+    }
+
+    private void ReorderGameBar(GameViewModel game)
+    {
+        game.LastPlayed = DateTime.Now;
+        var reordered = Games.OrderByDescending(g => g.LastPlayed);
+        
         Games.Clear();
 
         foreach (var g in reordered)
@@ -450,30 +479,28 @@ public partial class MainViewModel : ObservableObject
         SelectedGame = game;
     }
 
-    private void ApplyPatchPackage(string rar, string dir)
+    private static void ApplyPatchPackage(string rar, string dir)
     {
-        string temp = Path.Combine(Path.GetTempPath(), "IGNAVPatcherTool", Guid.NewGuid().ToString());
+        string temp = Path.Combine(Path.GetTempPath(), "IgnaviorLauncher-patcher", Guid.NewGuid().ToString());
         Directory.CreateDirectory(temp);
 
         using var fileStream = TryOpenFile(rar, FileMode.Open, FileAccess.Read, FileShare.Read);
-        using var archive = SharpCompress.Archives.Rar.RarArchive.OpenArchive(fileStream);
+        using var archive = RarArchive.OpenArchive(fileStream);
+
         foreach (var entry in archive.Entries.Where(e => !e.IsDirectory))
         {
-            entry.WriteToDirectory(temp, new SharpCompress.Common.ExtractionOptions()
+            entry.WriteToDirectory(temp, new ExtractionOptions
             {
                 ExtractFullPath = true,
                 Overwrite = true
             });
         }
-        string manifest = Directory.GetFiles(temp, "manifest.json", SearchOption.AllDirectories).FirstOrDefault();
-        if (manifest == null)
-        {
-            throw new Exception("Patch manifest not found in package.");
-        }
-        string root = Path.GetDirectoryName(manifest);
+        string? manifest = Directory.GetFiles(temp, "manifest.json", SearchOption.AllDirectories).FirstOrDefault() 
+            ?? throw new Exception("Patch manifest not found in package.");
+        string? root = Path.GetDirectoryName(manifest);
 
         var patch = JsonSerializer.Deserialize<PatchManifest>(File.ReadAllText(manifest));
-        foreach (var deletedFile in patch.deleted_files)
+        foreach (var deletedFile in patch!.deleted_files)
         {
             string fullPath = Path.Combine(dir, deletedFile);
             if (File.Exists(fullPath))
@@ -484,23 +511,23 @@ public partial class MainViewModel : ObservableObject
 
         foreach (var newFile in patch.new_files)
         {
-            string source = Path.Combine(root, newFile);
+            string source = Path.Combine(root!, newFile);
             string dest = Path.Combine(dir, newFile);
-            Directory.CreateDirectory(Path.GetDirectoryName(dest));
+            Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
             File.Copy(source, dest, overwrite: true);
         }
 
-        // string xdelta = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "xdelta3.exe");
-        string xdelta = AppDomain.CurrentDomain.GetData("PatcherPath") as string;
+        string? xdelta = AppDomain.CurrentDomain.GetData("PatcherPath") as string;
+
         foreach (var patchEntry in patch.patches)
         {
             string target = Path.Combine(dir, patchEntry.file);
-            string patcher = Path.Combine(root, patchEntry.patch);
+            string patcher = Path.Combine(root!, patchEntry.patch);
             string output = target + ".patcher";
 
-            var process = new System.Diagnostics.Process()
+            var process = new Process()
             {
-                StartInfo = new System.Diagnostics.ProcessStartInfo()
+                StartInfo = new ProcessStartInfo()
                 {
                     FileName = xdelta,
                     Arguments = $"-d -s \"{target}\" \"{patcher}\" \"{output}\"",
@@ -524,99 +551,35 @@ public partial class MainViewModel : ObservableObject
         Directory.Delete(temp, true);
     }
 
-    private string FindGameRoot(string dir)
+    private static string FindGameRoot(string directory)
     {
-        var subs = Directory.GetDirectories(dir);
-        if (subs.Length == 1)
+        var subdirectories = Directory.GetDirectories(directory);
+        if (subdirectories.Length == 1)
         {
-            string d = subs[0];
-            if (Directory.GetFiles(d, "*.exe").Length != 0 ||
-                Directory.GetDirectories(d, "*_Data").Length != 0)
+            string dir = subdirectories[0];
+            if (Directory.GetFiles(dir, "*.exe").Length != 0 ||
+                Directory.GetDirectories(dir, "*_Data").Length != 0)
             {
-                return Path.GetFileName(d);
+                return Path.GetFileName(dir);
             }
         }
         return ".";
     }
 
+#pragma warning disable IDE1006
     private class PatchManifest
     {
-        public List<PatchEntry> patches { get; set; } = new();
-        public List<string> new_files { get; set; } = new();
-        public List<string> deleted_files { get; set; } = new();
+        public List<PatchEntry> patches { get; set; } = [];
+        public List<string> new_files { get; set; } = [];
+        public List<string> deleted_files { get; set; } = [];
     }
 
     private class PatchEntry
     {
-        public string file { get; set; }
-        public string patch { get; set; }
+        public required string file { get; set; }
+        public required string patch { get; set; }
     }
-
-    [Obsolete]
-    private void LoadDummyData()
-    {
-        var games = new ObservableCollection<GameViewModel>();
-
-        var game1 = new GameViewModel
-        {
-            Name = "Alpha Game",
-            InstalledVersion = "v1.2.3",
-            TextState = "Play"
-        };
-        game1.PatchNotes.Add(new PatchNoteViewModel
-        {
-            Version = "1.2.3",
-            ReleaseDate = new DateTime(2026, 3, 14),
-            MarkdownContent = @"## **New Features**
-- Added support for new control system
-- Improved rendering performance
-
-### **Bugs**
-- Fixed bugs"
-        });
-        game1.PatchNotes.Add(new PatchNoteViewModel
-        {
-            Version = "1.2.2",
-            ReleaseDate = new DateTime(2026, 3, 13),
-            MarkdownContent = @"- Nothing interesting"
-        });
-        game1.PatchNotes.Add(new PatchNoteViewModel()
-        {
-            Version = "1.2",
-            ReleaseDate = new DateTime(2026, 1, 23),
-            MarkdownContent = @"## Bugs
-- Added new bugs
-- Fixed none
-
-### New Features
-- Major new content
-- Patched game-breaking glitch
-- New backend for input management
-- New version control system
-- Removed all old saves"
-        });
-
-        var game2 = new GameViewModel
-        {
-            Name = "Beta Game",
-            InstalledVersion = "",
-            TextState = "Install"
-        };
-        game2.PatchNotes.Add(new PatchNoteViewModel
-        {
-            Version = "v0.9",
-            ReleaseDate = new DateTime(2023, 9, 2),
-            MarkdownContent = @"## New Features
-- Added new level, _The Backrooms_
-- Beta release"
-        });
-
-        games.Add(game1);
-        games.Add(game2);
-
-        Games = [.. games.OrderByDescending(g => g.LastPlayed)];
-        SelectedGame = Games.FirstOrDefault();
-    }
+#pragma warning restore
 
     [RelayCommand]
     private void SelectGame(GameViewModel game)
@@ -624,16 +587,28 @@ public partial class MainViewModel : ObservableObject
         if (game == null)
             return;
 
-        SelectedGame = Games.FirstOrDefault(g => g == game);
+        SelectedGame = Games.FirstOrDefault(g => g == game) 
+            ?? throw new Exception("Null value, somehow, in SelectGame");
     }
 
     [RelayCommand]
-    private void VerifyIntegrity()
+    private void VerifyIntegrity(GameViewModel game)
     {
+        // TEMPORARY NYI
+        Debug.WriteLine("Verify integrity of game files failed: Not yet implemented");
+        if (game != null)
+            return;
+        // TEMPORARY NYI
 
+        if (game == null)
+            return;
+
+        var entry = manifestMap;
+        Debug.WriteLine(entry);
     }
 
-    private bool resetGameInfoOnUninstall = false;
+    private readonly bool resetGameInfoOnUninstall = false;
+
     [RelayCommand]
     private void UninstallGame(GameViewModel game)
     {
@@ -678,7 +653,10 @@ public partial class MainViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Uninstallation failed:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show($"Uninstallation failed:\n{ex.Message}", 
+                "Error", 
+                MessageBoxButton.OK, 
+                MessageBoxImage.Error);
         }
     }
 
@@ -699,16 +677,30 @@ public partial class MainViewModel : ObservableObject
 
             if (Directory.Exists(dir))
             {
-                System.Diagnostics.Process.Start("explorer.exe", dir);
+                Process.Start("explorer.exe", dir);
             }
             else
             {
-                MessageBox.Show("Game folder not found.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                // Temporary measure to combat inconsistencies in naming conventions
+                // Planned fix: force-rename extracted subdirectory to game_id,
+                // or alternatively just open the first directory regardless of name.
+                dir = Path.Combine(gameService.LibraryPath, id);
+                if (Directory.Exists(dir))
+                {
+                    Process.Start("explorer.exe", dir);
+                }
+                else
+                {
+                    MessageBox.Show("Game folder not found.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
             }
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Could not open folder:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show($"Could not open folder:\n{ex.Message}", 
+                "Error", 
+                MessageBoxButton.OK, 
+                MessageBoxImage.Error);
         }
     }
 
@@ -717,7 +709,7 @@ public partial class MainViewModel : ObservableObject
     {
         try
         {
-            var updatedManifest = await manifest.FetchManifestAsync();
+            var updatedManifest = await manifestService.FetchManifestAsync();
             if (updatedManifest == null)
             {
                 MessageBox.Show("Failed to fetch new manifest. Please check your Internet connection.",
