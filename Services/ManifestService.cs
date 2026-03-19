@@ -1,7 +1,7 @@
-﻿using System;
-using System.Net.Http;
+﻿using System.Net.Http;
+
+using System.Text.Json.Serialization;
 using System.Text.Json;
-using System.Threading.Tasks;
 
 namespace IgnaviorLauncher.Services;
 
@@ -12,7 +12,7 @@ internal class ManifestService
     private readonly JsonSerializerOptions options = new()
     {
         PropertyNameCaseInsensitive = true,
-        UnmappedMemberHandling = System.Text.Json.Serialization.JsonUnmappedMemberHandling.Skip
+        UnmappedMemberHandling = JsonUnmappedMemberHandling.Skip
     };
 
     public ManifestService()
@@ -24,16 +24,14 @@ internal class ManifestService
     {
         try
         {
-            var json = await client.GetStringAsync(PathManagerService.ManifestUrl);
-            System.Diagnostics.Debug.WriteLine($"Manifest: {json}");
+            var json = await client.GetStringAsync(PathManagerService.GetManifestUrl());
             var result = JsonSerializer.Deserialize<RootManifest>(json, options);
-            System.Diagnostics.Debug.WriteLine($"Games: {result?.Games?.Count ?? 0}");
-            return result;
+            return result!;
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Manifest fetch failed: {ex}");
-            return null;
+            return null!;
         }
     }
 }

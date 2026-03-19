@@ -1,12 +1,12 @@
-﻿using System.IO;
-using System.Text.Json;
+﻿using System.Text.Json;
+using System.IO;
 
 namespace IgnaviorLauncher.Services;
 
 public class Settings
 {
-    public string LibraryPath { get; set; }
-    public byte[] Secret { get; set; }
+    public string? LibraryPath { get; set; }
+    public byte[]? Secret { get; set; }
 }
 
 public class SettingsService

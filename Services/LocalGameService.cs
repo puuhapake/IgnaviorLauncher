@@ -8,11 +8,11 @@ namespace IgnaviorLauncher.Services;
 
 public class LocalGameInfo
 {
-    public string Id { get; set; }
-    public string InstalledVersion { get; set; }
-    public string DisplayVersion { get; set; }
-    public DateTime LastPlayed { get; set; }
-    public string GameRoot { get; set; }
+    public string? Id { get; set; }
+    public string? InstalledVersion { get; set; }
+    public string? DisplayVersion { get; set; }
+    public DateTime? LastPlayed { get; set; }
+    public string? GameRoot { get; set; }
 }
 
 public class LocalGameService
@@ -32,15 +32,15 @@ public class LocalGameService
         string info = Path.Combine(dir, "gameinfo.json");
 
         if (!File.Exists(info))
-            return null;
+            return null!;
 
         var json = File.ReadAllText(info);
-        return JsonSerializer.Deserialize<LocalGameInfo>(json);
+        return JsonSerializer.Deserialize<LocalGameInfo>(json)!;
     }
 
     public void SaveGameInfo(LocalGameInfo info)
     {
-        string folder = Path.Combine(LibraryPath, info.Id);
+        string folder = Path.Combine(LibraryPath, info.Id!);
         Directory.CreateDirectory(folder);
         
         string file = Path.Combine(folder, "gameinfo.json");

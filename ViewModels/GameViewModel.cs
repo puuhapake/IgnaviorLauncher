@@ -7,22 +7,22 @@ namespace IgnaviorLauncher.ViewModels;
 public partial class GameViewModel : ObservableObject
 {
     [ObservableProperty]
-    private string name;
+    private string? name;
 
     [ObservableProperty]
-    private string installedVersion = "v1.0.0"; // placeholder
+    private string? installedVersion = "v1.0";
 
     [ObservableProperty]
-    private string displayVersion;
+    private string? displayVersion;
 
     [ObservableProperty]
-    private string iconPath;
+    private string? iconPath;
 
     [ObservableProperty]
-    private string textState = "Play";
+    private string? textState = "Play";
 
     [ObservableProperty]
-    private DateTime lastPlayed = DateTime.Now;
+    private DateTime? lastPlayed = DateTime.Now;
 
     public ObservableCollection<PatchNoteViewModel> PatchNotes { get; } = [];
 

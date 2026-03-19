@@ -4,14 +4,14 @@ namespace IgnaviorLauncher.ViewModels;
 public partial class PatchNoteViewModel : ObservableObject
 {
     [ObservableProperty]
-    private string version;
+    private string? version;
 
     [ObservableProperty]
-    private string displayVersion;
+    private string? displayVersion;
 
     [ObservableProperty]
-    private string markdownContent;
+    private string? markdownContent;
 
     [ObservableProperty]
-    private DateTime releaseDate;
+    private DateTime? releaseDate;
 }
