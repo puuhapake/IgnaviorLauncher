@@ -40,11 +40,13 @@ public class StateVisibilityConverter : IValueConverter
 
 public class ProgressWidthConverter : IValueConverter
 {
+    public static readonly ProgressWidthConverter Instance = new();
+
     object IValueConverter.Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {
         if (value is double progress)
         {
-            return progress * 100.0;
+            return progress;
         }
         return 0.0;
     }
@@ -67,6 +69,25 @@ public class PauseSymbolConverter : IValueConverter
     }
 
     object IValueConverter.ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        throw new NotSupportedException();
+    }
+}
+
+public class NonNullVisibleConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        bool invert = parameter as string == "invert";
+        bool isVisible = value != null;
+        if (invert)
+        {
+            isVisible = !isVisible;
+        }
+        return isVisible ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
     {
         throw new NotSupportedException();
     }

@@ -2,6 +2,7 @@
 using System.Text.Json;
 using System.IO;
 
+using System.Windows.Media.Imaging;
 using System.Diagnostics;
 using System.Windows;
 using System.Net.Http;
@@ -18,7 +19,6 @@ using Microsoft.VisualBasic;
 
 namespace IgnaviorLauncher.ViewModels;
 using Services;
-using SharpCompress.Readers.Rar;
 
 public partial class MainViewModel : ObservableObject
 {
@@ -65,6 +65,7 @@ public partial class MainViewModel : ObservableObject
 
     private readonly Dictionary<(string id, string version), string> changelogCache = [];
     private readonly Dictionary<string, GameManifest> manifestMap = [];
+    private readonly Dictionary<string, BitmapImage> gameIcons = new();
 
     #region Constructor
     public MainViewModel()
@@ -97,7 +98,7 @@ public partial class MainViewModel : ObservableObject
         if (settings.Secret == null || settings.Secret.Length == 0)
         {
             string secret = Interaction.InputBox(
-                "TC catchphrase (club) (lowercase, spaces) + bday DDMMYY: ",
+                "Vad är TC:s catchphrase (\"klubb\"), allt med litet, plus min födelsedag (DDMMYY)\nExempel: \"hasse har en hammare + 290204\"",
                 "First-Time Setup", "", -1, -1);
 
             if (!string.IsNullOrEmpty(secret))
@@ -181,6 +182,7 @@ public partial class MainViewModel : ObservableObject
             };
 
             manifestMap[id] = game;
+            _ = LoadGameIcon(id, model);
             models.Add(model);
         }
 
@@ -214,6 +216,27 @@ public partial class MainViewModel : ObservableObject
     }
     #endregion
 
+    private async Task LoadGameIcon(string id, GameViewModel game)
+    {
+        try
+        {
+            string url = PathManagerService.GetIconUrl() + $"{id}.png";
+            var bmp = new BitmapImage();
+
+            bmp.BeginInit();
+            bmp.UriSource = new Uri(url);
+            bmp.CacheOption = BitmapCacheOption.OnLoad;
+            bmp.EndInit();
+
+            gameIcons[id] = bmp;
+            game.Icon = bmp;
+        }
+        catch
+        {
+            // first letter will be shown instead as text
+        }
+    }
+
     private async void LoadChangelogForGame(GameViewModel game)
     {
         var entry = manifestMap.FirstOrDefault(pair => pair.Value.Name == game.Name);
@@ -231,17 +254,21 @@ public partial class MainViewModel : ObservableObject
             versions.Add(manifest.Base.Version!);
         }
 
-        foreach (var patch in manifest.Patches!)
+        if (manifest.Patches != null)
         {
-            if (!versions.Contains(patch.OldVersion!))
+            foreach (var patch in manifest.Patches!)
             {
-                versions.Add(patch.OldVersion!);
-            }
-            if (!versions.Contains(patch.NewVersion!))
-            {
-                versions.Add(patch.NewVersion!);
+                if (!versions.Contains(patch.OldVersion!))
+                {
+                    versions.Add(patch.OldVersion!);
+                }
+                if (!versions.Contains(patch.NewVersion!))
+                {
+                    versions.Add(patch.NewVersion!);
+                }
             }
         }
+
         versions = [.. versions.Distinct().OrderByDescending(ver => ver)];
 
         using var client = new HttpClient();
@@ -282,26 +309,43 @@ public partial class MainViewModel : ObservableObject
     private static async Task<List<string>> DownloadArchivePartsAsync(
         DownloadService downloader,
         string tempDir,
-        BaseInfo baseInfo)
+        BaseInfo baseInfo,
+        IProgress<double>? progress = null)
     {
         string archiveDir = Path.Combine(tempDir, Guid.NewGuid().ToString());
         Directory.CreateDirectory(archiveDir);
 
         var paths = new List<string>();
+        var parts = baseInfo.Parts ?? new List<PartInfo>();
+        int totalParts = parts.Count;
+
+        if (totalParts == 0 && !string.IsNullOrEmpty(baseInfo.Url))
+        {
+            totalParts = 1;
+        }
+
+        int completed = 0;
         if (baseInfo.Parts != null && baseInfo.Parts.Count != 0)
         {
             foreach (var part in baseInfo.Parts)
             {
                 string originalName = Path.GetFileName(new Uri(part.Url!).LocalPath);
-                string path = await downloader.DownloadFileAsync(part.Url!, archiveDir, originalName);
+
+                string path = await downloader.DownloadFileAsync(part.Url!, archiveDir, originalName, 
+                    progress: progress == null ? null : new Progress<double>(
+                        p => progress.Report((completed + p) / totalParts))
+                    );
                 paths.Add(path);
+                completed++;
+                progress?.Report((double)completed / totalParts);
             }
         }
         else if (!string.IsNullOrEmpty(baseInfo.Url))
         {
             string originalName = Path.GetFileName(new Uri(baseInfo.Url).LocalPath);
-            string path = await downloader.DownloadFileAsync(baseInfo.Url, archiveDir, originalName);
+            string path = await downloader.DownloadFileAsync(baseInfo.Url, archiveDir, originalName, progress);
             paths.Add(path);
+            progress?.Report(1.0);
         }
         else
         {
@@ -314,26 +358,42 @@ public partial class MainViewModel : ObservableObject
     private static async Task<List<string>> DownloadArchivePartsAsync(
         DownloadService downloader,
         string tempDir,
-        PatchInfo patchInfo)
+        PatchInfo patchInfo,
+        IProgress<double>? progress = null)
     {
         string archiveDir = Path.Combine(tempDir, Guid.NewGuid().ToString());
         Directory.CreateDirectory(archiveDir);
 
         var paths = new List<string>();
+        var parts = patchInfo.Parts ?? [];
+        int totalParts = parts.Count;
+
+        if (totalParts == 0 && !string.IsNullOrEmpty(patchInfo.Url))
+        {
+            totalParts = 1;
+        }
+
+        int completed = 0;
         if (patchInfo.Parts != null && patchInfo.Parts.Count != 0)
         {
             foreach (var part in patchInfo.Parts)
             {
                 string originalName = Path.GetFileName(new Uri(part.Url!).LocalPath);
-                string path = await downloader.DownloadFileAsync(part.Url!, archiveDir, originalName);
+
+                string path = await downloader.DownloadFileAsync(part.Url!, archiveDir, originalName,
+                    progress: progress == null ? null : new Progress<double>(
+                        p => progress.Report((completed + p) / totalParts)));
                 paths.Add(path);
+                completed++;
+                progress?.Report((double)completed / totalParts);
             }
         }
         else if (!string.IsNullOrEmpty(patchInfo.Url))
         {
             string originalName = Path.GetFileName(new Uri(patchInfo.Url).LocalPath);
-            string path = await downloader.DownloadFileAsync(patchInfo.Url, archiveDir, originalName);
+            string path = await downloader.DownloadFileAsync(patchInfo.Url, archiveDir, originalName, progress);
             paths.Add(path);
+            progress?.Report(1.0);
         }
         else
         {
@@ -407,8 +467,12 @@ public partial class MainViewModel : ObservableObject
     private async void InstallGame(GameViewModel game)
     {
         var gameEntry = manifestMap.FirstOrDefault(pair => pair.Value.Name == game.Name);
-        if (gameEntry.Key == null)
+        if (gameEntry.Key == null || game.IsDownloading)
             return;
+
+        game.IsDownloading = true;
+        game.DownloadProgress = 0;
+        game.TextState = "Downloading...";
 
         string id = gameEntry.Key;
         var manifest = gameEntry.Value;
@@ -424,7 +488,9 @@ public partial class MainViewModel : ObservableObject
 
         try
         {
-            List<string> downloaded = await DownloadArchivePartsAsync(downloader, temp, manifest.Base);
+            Progress<double> progress = new(p => game.DownloadProgress = p * 100);
+            List<string> downloaded = await DownloadArchivePartsAsync(downloader, temp, manifest.Base, progress);
+            
             VerifyPartFiles(downloaded);
             rar = downloaded.First();
             Debug.WriteLine($"Downloaded archive to {rar}");
@@ -434,8 +500,11 @@ public partial class MainViewModel : ObservableObject
                 throw new Exception("Downloaded file missing!");
             }
 
-            game.TextState = "Installing...";
 
+            await Task.Delay(50);
+            game.TextState = "Extracting...";
+            await Task.Delay(50);
+            game.IsExtracting = true;
 
             string pw = GetSecret();
 
@@ -462,12 +531,17 @@ public partial class MainViewModel : ObservableObject
                 LastPlayed = DateTime.Now
             });
 
+            game.IsExtracting = false;
+            game.IsDownloading = false;
             game.InstalledVersion = manifest.Base.Version;
             game.DisplayVersion = displayVer;
             game.TextState = manifest.Base.Version == manifest.LatestVersion ? "Play" : "Update";
         }
         catch (Exception ex)
         {
+            game.TextState = "Install";
+            game.IsDownloading = false;
+
             Debug.WriteLine(ex);
             MessageBox.Show($"Installation failed:\n{ex.Message}\nStack trace: {ex.StackTrace}", "Error",
                             MessageBoxButton.OK, MessageBoxImage.Error);
@@ -544,6 +618,8 @@ public partial class MainViewModel : ObservableObject
         var patches = new List<PatchInfo>();
         string version = game.InstalledVersion!;
 
+        game.TextState = "Patching...";
+
         // Note: patches must be listed in sequential order
         while (version != manifest.LatestVersion)
         {
@@ -565,6 +641,7 @@ public partial class MainViewModel : ObservableObject
             ApplyPatchPackage(downloads.First(), dir);
         }
 
+        game.IsDownloading = false;
         info.InstalledVersion = manifest.LatestVersion;
         info.DisplayVersion = GetDisplayVersion(id, manifest.LatestVersion);
         gameService.SaveGameInfo(info);

@@ -23,4 +23,9 @@ public class PathManagerService
     {
         return "https://raw.githubusercontent.com/puuhapake/IgnaviorLauncher_files/main/manifest.json";
     }
+
+    public static string GetIconUrl()
+    {
+        return "https://raw.githubusercontent.com/puuhapake/IgnaviorLauncher_files/main/icons/";
+    }
 }

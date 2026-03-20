@@ -1,36 +1,32 @@
-﻿<Window x:Class="IgnaviorLauncher.MainWindow"
+﻿<Window
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:IgnaviorLauncher.ViewModels"
         xmlns:views="clr-namespace:IgnaviorLauncher.Views"
+        xmlns:av="http://schemas.microsoft.com/expression/blend/2008" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="av" x:Class="IgnaviorLauncher.MainWindow"
         Title="Ignavior Launcher" Height="693" Width="1036"
         WindowStartupLocation="CenterScreen"
         Background="#1A1A1A"
         MinWidth="1060" MinHeight="720"
         FontFamily="/Assets/Fonts/Inter.ttf#Inter">
 
-    <Window.DataContext>
-        <local:MainViewModel />
-    </Window.DataContext>
-
     <Window.Resources>
         <local:ScaleMultiplier x:Key="ScaleMultiplier"/>
+        <local:NonNullVisibleConverter x:Key="NonNullConverter"/>
         <BooleanToVisibilityConverter x:Key="VisibilityConverter"/>
-        <local:ProgressWidthConverter x:Key="ProgressWidthConverter"/>
+        <local:ProgressWidthConverter x:Key="ProgressConverter"/>
         <local:PauseSymbolConverter x:Key="PauseSymbolConverter"/>
         <local:StateVisibilityConverter x:Key="ShowSettingsConverter"/>
-        <FontFamily x:Key="Inter-Variable">
-            /Assets/Fonts/Inter-VariableFont_opsz,wght.ttf#Inter
-        </FontFamily>
+        <FontFamily x:Key="Inter-Variable">/Assets/Fonts/Inter-VariableFont_opsz,wght.ttf#Inter</FontFamily>
 
-        <Style x:Key="FlatButtonStyle" TargetType="Button">
+        <Style x:Key="FlatButtonStyle" TargetType="{x:Type Button}">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
-                    <ControlTemplate TargetType="Button">
+                    <ControlTemplate TargetType="{x:Type Button}">
                         <Border Background="{TemplateBinding Background}"
                         BorderBrush="{TemplateBinding BorderBrush}"
                         BorderThickness="{TemplateBinding BorderThickness}"
@@ -51,48 +47,70 @@
             </Setter>
         </Style>
 
-        <Style x:Key="MenuButtonStyle" TargetType="Button" BasedOn="{StaticResource FlatButtonStyle}">
+        <Style x:Key="MenuButtonStyle" TargetType="{x:Type Button}" BasedOn="{StaticResource FlatButtonStyle}">
             <Setter Property="Padding" Value="10,5"/>
             <Setter Property="HorizontalContentAlignment" Value="Left"/>
         </Style>
 
-        <Style TargetType="TextBlock">
+        <Style x:Key="CustomToolTip" TargetType="ToolTip">
+            <Setter Property="Background" Value="#CC171717"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontFamily" Value="{StaticResource Inter-Variable}"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="BorderBrush" Value="#555"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="HasDropShadow" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToolTip">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="{x:Type TextBlock}">
             <Setter Property="FontFamily" Value="{StaticResource Inter-Variable}"/>
             <Setter Property="Foreground" Value="White"/>
         </Style>
-        <Style TargetType="Button">
+        <Style TargetType="{x:Type Button}">
             <Setter Property="FontFamily" Value="{StaticResource Inter-Variable}"/>
             <Setter Property="Foreground" Value="White"/>
         </Style>
 
-        <Style x:Key="RoundedProgressBar" TargetType="ProgressBar">
+        <Style x:Key="RoundedProgressBar" TargetType="{x:Type ProgressBar}">
             <Setter Property="Background" Value="#33000000"/>
             <Setter Property="Foreground" Value="#C4191B"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Template">
                 <Setter.Value>
-                    <ControlTemplate TargetType="ProgressBar">
+                    <ControlTemplate TargetType="{x:Type ProgressBar}">
                         <Grid x:Name="TemplateRoot">
                             <Border x:Name="PART_Track"
                                     Background="{TemplateBinding Background}"
-                                    BorderBrush="{TemplateBinding BorderBrush}"
-                                    BorderThickness="{TemplateBinding BorderThickness}"
-                                    CornerRadius="4"/>
+                                    CornerRadius="2"/>
                             <Border x:Name="PART_Indicator"
                                     Background="{TemplateBinding Foreground}"
-                                    BorderThickness="0"
-                                    CornerRadius="4"
+                                    CornerRadius="2"
                                     HorizontalAlignment="Left"/>
                         </Grid>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
         </Style>
-        
-        <Style x:Key="PlayButtonStyle" TargetType="Button">
+
+        <Style x:Key="PlayButtonStyle" TargetType="{x:Type Button}">
             <Setter Property="Template">
                 <Setter.Value>
-                    <ControlTemplate TargetType="Button">
+                    <ControlTemplate TargetType="{x:Type Button}">
                         <Grid>
                             <Rectangle x:Name="BackgroundRect"
                                        RadiusX="4" RadiusY="4"
@@ -126,6 +144,10 @@
         </Style>
     </Window.Resources>
 
+    <Window.DataContext>
+        <local:MainViewModel />
+    </Window.DataContext>
+
     <Grid>
         <Canvas>
             <Rectangle Width="1024" Height="1024"
@@ -148,7 +170,10 @@
             </Grid.RowDefinitions>
 
             <Border Grid.Row="0" Height="58" Margin="32,28,32,0"
-                    Background="#33FFFFFF">
+                    CornerRadius="4">
+                <Border.Background>
+                    <ImageBrush ImageSource="/Assets/TopToolbar.png" Stretch="UniformToFill"/>
+                </Border.Background>
                 <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
                     <ListBox x:Name="GamesTabList"
                              ItemsSource="{Binding Games}"
@@ -165,37 +190,62 @@
                         </ListBox.ItemsPanel>
                         <ListBox.ItemTemplate>
                             <DataTemplate>
-                                <Border Width="58" Height="58" Margin="0,0,13,0"
-                                        Background="#4D5D5D5D" CornerRadius="2">
-                                    <TextBlock Text="{Binding Name[0]}" 
-                                               Foreground="White" FontSize="24"
-                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                <Border Width="60" Height="55" Margin="0,0,0,0"
+                                        Background="Transparent">
+                                    <Grid>
+                                        <Border x:Name="HighlightBorder"
+                                            Width="60" Height="57"
+                                            Background="#21D9D9D9"
+                                            CornerRadius="4"
+                                            Visibility="Collapsed"/>
+                                        <Image Source="{Binding Icon}" Stretch="UniformToFill"
+                                            Margin="2.5,1,1,2.5"
+                                            Visibility="{Binding Icon, Converter={StaticResource NonNullConverter}}">
+                                            <Image.Clip>
+                                                <RectangleGeometry Rect="0,0,55,50" RadiusX="8" RadiusY="8"/>
+                                            </Image.Clip>
+                                        </Image>
+                                        <TextBlock Text="{Binding Name[0]}" FontSize="24" Foreground="White"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                                               Visibility="{Binding Icon, Converter={StaticResource NonNullConverter}, ConverterParameter=invert}"/>
+                                    </Grid>
                                 </Border>
+                                <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                                        <Setter TargetName="HighlightBorder" Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </DataTemplate.Triggers>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                         <ListBox.ItemContainerStyle>
-                            <Style TargetType="ListBoxItem">
+                            <Style TargetType="{x:Type ListBoxItem}">
+                                <Setter Property="ToolTip">
+                                    <Setter.Value>
+                                        <ToolTip Style="{StaticResource CustomToolTip}" Content="{Binding Name}"/>
+                                    </Setter.Value>
+                                </Setter>
+                                <Setter Property="ToolTipService.InitialShowDelay" Value="500"/>
                                 <Setter Property="Margin" Value="0,0,13,0"/>
                                 <Setter Property="Padding" Value="0"/>
                                 <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
                                 <Setter Property="Template">
                                     <Setter.Value>
-                                        <ControlTemplate TargetType="ListBoxItem">
+                                        <ControlTemplate TargetType="{x:Type ListBoxItem}">
                                             <Grid>
                                                 <Border x:Name="HighlightBorder"
-                                                        Width="58" Height="58"
+                                                        Width="60" Height="57"
                                                         Background="#21D9D9D9"
-                                                        CornerRadius="2"
+                                                        CornerRadius="4"
                                                         HorizontalAlignment="Left"
                                                         VerticalAlignment="Center"
                                                         Visibility="Collapsed"/>
                                                 <Border x:Name="RedLine"
-                                                        Width="58" Height="2" 
+                                                        Width="60" Height="3" 
                                                         Background="#ED331F"
                                                         HorizontalAlignment="Left"
                                                         VerticalAlignment="Bottom"
                                                         Margin="0,0,0,0"
-                                                        CornerRadius="1"
+                                                        CornerRadius="0,0,3,3"
                                                         Visibility="Collapsed"/>
                                                 <ContentPresenter HorizontalAlignment="Center"
                                                                   VerticalAlignment="Center"/>
@@ -234,12 +284,12 @@
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
                     <TextBlock Grid.Row="0" Text="{Binding SelectedGame.Name}" 
-                               FontFamily="Inter" FontSize="{Binding ChangelogScale, Converter={StaticResource ScaleMultiplier}, ConverterParameter=42}"
+                               FontFamily="Inter" FontSize="{Binding ChangelogScale, ConverterParameter=42, Converter={StaticResource ScaleMultiplier}}"
                                Foreground="White" Margin="16,0,0,0"
                                TextWrapping="Wrap"
                                HorizontalAlignment="Stretch"/>
                     <TextBlock Grid.Row="1" Text="{Binding SelectedGame.DisplayVersion}"
-                               FontFamily="Inter" FontWeight="Medium" FontSize="{Binding ChangelogScale, Converter={StaticResource ScaleMultiplier}, ConverterParameter=12}"
+                               FontFamily="Inter" FontWeight="Medium" FontSize="{Binding ChangelogScale, ConverterParameter=12, Converter={StaticResource ScaleMultiplier}}"
                                Foreground="#CCFFFFFF" Margin="16,5,0,0"/>
 
                     <Grid Grid.Row="2" VerticalAlignment="Bottom" Margin="30,0,0,20">
@@ -247,58 +297,61 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
-                        <Grid Grid.Row="0" Margin="0,0,0,5"
-                              MaxWidth="305" HorizontalAlignment="Left">
+
+                        <ProgressBar Grid.Row="0"
+                            Style="{StaticResource RoundedProgressBar}"
+                            Value="{Binding SelectedGame.DownloadProgress, Converter={StaticResource ProgressConverter}}"
+                            IsIndeterminate="{Binding SelectedGame.IsExtracting}"
+                            Minimum="0" Maximum="100"
+                            Height="8"
+                            Margin="0,0,0,5"
+                            HorizontalAlignment="Left"
+                            Width="305"
+                            Visibility="{Binding SelectedGame.IsDownloading, Converter={StaticResource VisibilityConverter}}"/>
+                        <Grid Grid.Row="1" Margin="0,0,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
 
-                            <Button Grid.Column="0"
-                                x:Name="SettingsButton"
-                                Style="{StaticResource FlatButtonStyle}"
-                                Width="32" Height="32"
-                                Content="⚙" FontSize="20"
-                                FontWeight="Light"
-                                HorizontalAlignment="Left"
-                                Margin="15,0,0,5"
-                                Background="Transparent"
-                                    
-                                BorderThickness="0"
-                                Foreground="White"
-                                Cursor="Hand"
-                                Visibility="{Binding SelectedGame.TextState, Converter={StaticResource ShowSettingsConverter}}"
-                                Click="SettingsButton_Click"/>
-
-                            <Grid Grid.Column="1" Margin="5,0,5,0">
-                                <ProgressBar Style="{StaticResource RoundedProgressBar}"
-                             Value="{Binding SelectedGame.DownloadProgress, Converter={StaticResource ProgressWidthConverter}}"
-                             Minimum="0" Maximum="100"
-                             Height="8"
-                             Visibility="{Binding SelectedGame.IsDownloading, Converter={StaticResource VisibilityConverter}}"/>
-                            </Grid>
-
-                            <Button Grid.Column="2"
-                                Style="{StaticResource FlatButtonStyle}"
-                                Width="30" Height="30"
-                                Content="{Binding SelectedGame.IsPaused, Converter={StaticResource PauseSymbolConverter}}"
-                                FontSize="20"
-                                Visibility="{Binding SelectedGame.IsDownloading, Converter={StaticResource VisibilityConverter}}"
-                                Command="{Binding TogglePauseCommand}"
-                                />
-                        </Grid>
-                        
-                        <Button Grid.Row="1" Width="305" Height="68"
+                            <Button Grid.Column="0" Width="305" Height="68"
                                 Content="{Binding SelectedGame.TextState}"
-                                Style="{StaticResource PlayButtonStyle}"
                                 FontFamily="Inter" FontWeight="SemiBold" FontSize="28"
                                 Foreground="White"
-                                VerticalAlignment="Bottom"
-                                HorizontalAlignment="Left"
-                                Margin="15,0,0,20"
-                                Command="{Binding DataContext.PrimaryActionCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                CommandParameter="{Binding SelectedGame}"/>
+                                Command="{Binding DataContext.PrimaryActionCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                                CommandParameter="{Binding SelectedGame}">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource PlayButtonStyle}">
+                                        <Setter Property="IsEnabled" Value="True"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding SelectedGame.IsDownloading}" Value="True">
+                                                <Setter Property="IsEnabled" Value="False"/>
+                                                <Setter Property="Opacity" Value="0.67"/>
+                                                <Setter Property="Effect">
+                                                    <Setter.Value>
+                                                        <DropShadowEffect BlurRadius="0" ShadowDepth="0" Opacity="0"/>
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+
+                            <Button Grid.Column="1"
+                            x:Name="SettingsButton"
+                            Style="{StaticResource FlatButtonStyle}"
+                            Width="40" Height="40"
+                            Content="⚙" FontSize="24"
+                            Margin="10,0,0,0"
+                            VerticalAlignment="Center"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Foreground="White"
+                            Cursor="Hand"
+                            Visibility="{Binding SelectedGame.TextState, Converter={StaticResource ShowSettingsConverter}}"
+                            Click="SettingsButton_Click"/>
+                        </Grid>
                     </Grid>
                 </Grid>
 
@@ -318,31 +371,31 @@
                         <StackPanel>
                             <Button Content="Open in file explorer"
                                     Margin="0,0,0,3"
-                                    Command="{Binding DataContext.OpenExplorerCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    Command="{Binding DataContext.OpenExplorerCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
                                     CommandParameter="{Binding SelectedGame}"
                                     Style="{StaticResource MenuButtonStyle}"
                                     Click="MenuItem_Click"/>
                             <Button Content="Verify integrity of game files"
                                     Margin="0,0,0,3"
-                                    Command="{Binding DataContext.VerifyIntegrityCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    Command="{Binding DataContext.VerifyIntegrityCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
                                     CommandParameter="{Binding SelectedGame}"
                                     Style="{StaticResource MenuButtonStyle}"
                                     Click="MenuItem_Click"/>
                             <Button Content="Check for updates"
                                     Margin="0,0,0,3"
-                                    Command="{Binding DataContext.CheckForUpdatesCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    Command="{Binding DataContext.CheckForUpdatesCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
                                     Style="{StaticResource MenuButtonStyle}"
                                     Click="MenuItem_Click"/>
                             <Button Content="Uninstall game"
                                     Margin="0,0,0,3"
-                                    Command="{Binding DataContext.UninstallGameCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    Command="{Binding DataContext.UninstallGameCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
                                     CommandParameter="{Binding SelectedGame}"
                                     Style="{StaticResource MenuButtonStyle}"
                                     Click="MenuItem_Click"/>
                         </StackPanel>
                     </Border>
                 </Popup>
-                
+
                 <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto"
                               Background="Transparent">
                     <ItemsControl ItemsSource="{Binding SelectedGame.PatchNotes}">

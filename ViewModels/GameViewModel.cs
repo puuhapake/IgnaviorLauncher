@@ -1,6 +1,8 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+
 using System.Collections.ObjectModel;
+using System.Windows.Media;
 
 namespace IgnaviorLauncher.ViewModels;
 
@@ -16,7 +18,7 @@ public partial class GameViewModel : ObservableObject
     private string? displayVersion;
 
     [ObservableProperty]
-    private string? iconPath;
+    private ImageSource? icon;
 
     [ObservableProperty]
     private string? textState = "Play";
@@ -31,6 +33,9 @@ public partial class GameViewModel : ObservableObject
 
     [ObservableProperty]
     private double downloadProgress;
+
+    [ObservableProperty]
+    private bool isExtracting;
 
     [ObservableProperty]
     private bool isPaused;

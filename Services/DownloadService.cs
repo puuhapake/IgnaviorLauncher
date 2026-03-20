@@ -12,7 +12,8 @@ public class DownloadService
         client = new();
     }
 
-    public async Task<string> DownloadFileAsync(string url, string dest, string? overrideFileName = null)
+    public async Task<string> DownloadFileAsync(string url, string dest, 
+        string? overrideFileName = null, IProgress<double>? progress = null)
     {
         Directory.CreateDirectory(dest);
         string? fileName = overrideFileName ?? Guid.NewGuid().ToString() + Path.GetExtension(new Uri(url).LocalPath);
@@ -28,10 +29,22 @@ public class DownloadService
                 response.EnsureSuccessStatusCode();
 
                 long? contentLength = response.Content.Headers.ContentLength;
+                long totalRead = 0;
 
-                using (FileStream fileStream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.Read, bufferSize: 8192, true))
+                using (var fileStream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.Read, 8192, true))
+                using (var contentStream = await response.Content.ReadAsStreamAsync())
                 {
-                    await response.Content.CopyToAsync(fileStream);
+                    byte[] buffer = new byte[81920];
+                    int bytesRead;
+                    while ((bytesRead = await contentStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                    {
+                        await fileStream.WriteAsync(buffer, 0, bytesRead);
+                        totalRead += bytesRead;
+                        if (progress != null && contentLength.HasValue && contentLength.Value > 0)
+                        {
+                            progress.Report((double)totalRead / contentLength.Value);
+                        }
+                    }
                 }
 
                 if (contentLength.HasValue)
