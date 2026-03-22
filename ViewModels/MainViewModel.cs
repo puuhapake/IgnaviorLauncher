@@ -188,6 +188,7 @@ public partial class MainViewModel : ObservableObject
 
         Games = [.. models.OrderByDescending(g => g.LastPlayed)];
         SelectedGame = Games.FirstOrDefault()!;
+        CheckForLauncherUpdate(manifest);
     }
     #endregion
 
@@ -214,6 +215,97 @@ public partial class MainViewModel : ObservableObject
             Debug.WriteLine($"Cleanup error {ex}");
         }
     }
+    #endregion
+
+    #region Self-Updater
+    private void CheckForLauncherUpdate(RootManifest manifest)
+    {
+        if (manifest.Launcher == null)
+        {
+            return;
+        }
+
+        string current = VersionInfo.CurrentLauncherVersion;
+        string latest = manifest.Launcher.LatestVersion;
+
+        if (current == latest)
+        {
+            return;
+        }
+
+        var result = MessageBox.Show("A new launcher version is available. Update now?", 
+            "Launcher Update", MessageBoxButton.YesNo, MessageBoxImage.Question);
+
+        if (result == MessageBoxResult.Yes)
+        {
+            UpdateLauncher(manifest.Launcher);
+        }
+    }
+
+    private async void UpdateLauncher(LauncherInfo launcher)
+    {
+        List<PatchInfo> patches = [];
+        string version = VersionInfo.CurrentLauncherVersion;
+        while (version != launcher.LatestVersion)
+        {
+            var next = launcher.Patches.FirstOrDefault(p => p.OldVersion == version) 
+                ?? throw new Exception($"No patch from {version} to next version.");
+
+            patches.Add(next);
+            version = next.NewVersion;
+        }
+
+        DownloadService downloader = new();
+        string tempDir = PathManagerService.GetDownloadsPath();
+        string dir = null;
+
+        try
+        {
+            foreach (var patch in patches)
+            {
+                var parts = await DownloadArchivePartsAsync(downloader, tempDir, patch);
+                string rar = parts.First();
+                dir = Path.Combine(
+                    Path.GetTempPath(), "IgnaviorLaucher_update", Guid.NewGuid().ToString()
+                );
+                Directory.CreateDirectory(dir);
+                ExtractArchive(rar, dir, null);
+
+                string patchFile = Directory.GetFiles(
+                    dir, "IgnaviorLauncher.exe.xdelta", SearchOption.AllDirectories
+                ).FirstOrDefault() ?? throw new Exception("Patch file not found.");
+
+                string xdelta = AppDomain.CurrentDomain.GetData("PatcherPath") as string;
+                string updater = ResourceService.GetUpdater();
+
+                Debug.WriteLine($"Updater extracted to {updater}");
+
+                string target = Environment.ProcessPath!;
+                int pid = Environment.ProcessId;
+                ProcessStartInfo startInfo = new()
+                {
+                    FileName = updater,
+                    Arguments = $"\"{patchFile}\" \"{target}\" \"{xdelta}\" {pid}",
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+                Process.Start(startInfo);
+                await Task.Delay(500);
+                Application.Current.Shutdown();
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Launcher update failed: {ex.Message}", 
+                "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            
+            if (dir != null && Directory.Exists(dir))
+            {
+                Directory.Delete(dir, true);
+            }
+        }
+    }
+
     #endregion
 
     private async Task LoadGameIcon(string id, GameViewModel game)

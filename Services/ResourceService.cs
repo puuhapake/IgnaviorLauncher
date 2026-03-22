@@ -73,4 +73,20 @@ public static class ResourceService
         );
         stream.CopyTo(fileStream);
     }
+
+    public static string GetUpdater()
+    {
+        string path = Path.Combine(BaseDirectory, "updater.exe");
+        if (File.Exists(path))
+        {
+            return path;
+        }
+
+        Directory.CreateDirectory(BaseDirectory);
+        using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(REL_PATH + "updater.exe") 
+            ?? throw new Exception("Updater not found in embedded resources.");
+        using FileStream fileStream = new(path, FileMode.Create, FileAccess.Write);
+        stream.CopyTo(fileStream);
+        return path;
+    }
 }

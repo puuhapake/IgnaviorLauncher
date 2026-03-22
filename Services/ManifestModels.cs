@@ -2,10 +2,19 @@
 
 namespace IgnaviorLauncher.Services;
 
+/// <summary> Contains the current build version of the launcher. Increment by one with each update.</summary>
+public static class VersionInfo
+{
+    public const string CurrentLauncherVersion = "2";
+}
+
 public class RootManifest
 {
     [JsonPropertyName("games")]
     public Dictionary<string, GameManifest>? Games { get; set; }
+
+    [JsonPropertyName("launcher")]
+    public LauncherInfo? Launcher { get; set; }
 }
 
 public class GameManifest
@@ -60,4 +69,11 @@ public class PatchInfo
 
     [JsonPropertyName("parts")]
     public List<PartInfo>? Parts { get; set; }
+}
+
+public class LauncherInfo
+{
+    public string CurrentVersion { get; set; }
+    public string LatestVersion { get; set; }
+    public List<PatchInfo> Patches { get; set; }
 }
